@@ -32,7 +32,7 @@ Der Server blockiert GraphQL `mutation`-Operationen explizit.
 ### Option A: Direkt ueber PyPI mit uvx (empfohlen)
 
 ```bash
-uvx --refresh -q flin-shopify-analytics-mcp@0.2.5 \
+uvx --refresh -q flin-shopify-analytics-mcp@0.2.6 \
   --domain your-store.myshopify.com \
   --clientId your_client_id \
   --clientSecret your_client_secret \
@@ -57,6 +57,7 @@ export SHOPIFY_STORE_DOMAIN="your-store.myshopify.com"
 export SHOPIFY_CLIENT_ID="your_client_id"
 export SHOPIFY_CLIENT_SECRET="your_client_secret"
 export SHOPIFY_API_VERSION="2026-04"
+export SHOPIFY_CA_BUNDLE="/path/to/ca-bundle.pem"  # optional
 ```
 
 Option 2: Legacy Static Access Token
@@ -70,6 +71,7 @@ export SHOPIFY_API_VERSION="2026-04"
 Hinweis:
 - Bei `client_credentials` wird das Access Token automatisch angefordert und kurz vor Ablauf erneuert.
 - Wenn sowohl `SHOPIFY_ADMIN_ACCESS_TOKEN` als auch `SHOPIFY_CLIENT_ID/SHOPIFY_CLIENT_SECRET` gesetzt sind, gewinnt der statische Token-Modus.
+- Fuer TLS nutzt der MCP standardmaessig das `certifi`-CA-Bundle. Bei firmeneigenen Proxies oder abweichenden Zertifikatsketten kann `SHOPIFY_CA_BUNDLE` oder `SSL_CERT_FILE` gesetzt werden.
 
 ## MCP Client Konfiguration (Beispiel)
 
@@ -83,7 +85,7 @@ Hinweis:
       "args": [
         "--refresh",
         "-q",
-        "flin-shopify-analytics-mcp@0.2.5",
+        "flin-shopify-analytics-mcp@0.2.6",
         "--domain",
         "your-store.myshopify.com",
         "--clientId",
@@ -105,12 +107,13 @@ Hinweis:
   "mcpServers": {
     "shopify-analytics": {
       "command": "uvx",
-      "args": ["--refresh", "-q", "flin-shopify-analytics-mcp@0.2.5"],
+      "args": ["--refresh", "-q", "flin-shopify-analytics-mcp@0.2.6"],
       "env": {
         "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
         "SHOPIFY_CLIENT_ID": "your_client_id",
         "SHOPIFY_CLIENT_SECRET": "your_client_secret",
-        "SHOPIFY_API_VERSION": "2026-04"
+        "SHOPIFY_API_VERSION": "2026-04",
+        "SHOPIFY_CA_BUNDLE": "/path/to/ca-bundle.pem"
       }
     }
   }
@@ -120,6 +123,7 @@ Hinweis:
 Troubleshooting:
 - Wenn Claude weiterhin eine alte oder fehlende Version meldet, liegt das fast immer am lokalen `uv`-Index-Cache. `--refresh` erzwingt die Aktualisierung.
 - Fuer einen einmaligen lokalen Reset hilft `uv cache clean flin-shopify-analytics-mcp`.
+- Bei `SSL: CERTIFICATE_VERIFY_FAILED` nutzt der MCP jetzt standardmaessig `certifi`. Wenn deine Umgebung eigene Root-CAs oder einen Proxy nutzt, setze `SHOPIFY_CA_BUNDLE` oder `SSL_CERT_FILE`.
 
 ## Entwicklung
 

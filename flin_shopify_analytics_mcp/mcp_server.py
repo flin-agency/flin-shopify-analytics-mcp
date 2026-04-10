@@ -11,7 +11,7 @@ from .tools import TOOL_DEFINITIONS, call_tool
 
 JSONRPC_VERSION = "2.0"
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "flin-shopify-analytics-mcp", "version": "0.2.5"}
+SERVER_INFO = {"name": "flin-shopify-analytics-mcp", "version": "0.2.6"}
 SERVER_INSTRUCTIONS = (
     "Read-only Shopify analytics MCP server. Use the tools to inspect orders, customers, products, "
     "and purchase summaries. Do not attempt Shopify mutations."

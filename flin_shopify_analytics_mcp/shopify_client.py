@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import ssl
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Callable
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+import certifi
 
 from .analytics import aggregate_by_customer_product
 from .config import Config
@@ -297,19 +300,51 @@ class HttpResponse:
 HttpPostFn = Callable[[str, dict[str, str], bytes], HttpResponse]
 
 
-def _default_post_json(url: str, headers: dict[str, str], body: bytes) -> HttpResponse:
-    request = Request(url=url, data=body, headers=headers, method="POST")
-    try:
-        with urlopen(request, timeout=30) as response:
-            raw = response.read().decode("utf-8")
+def _resolve_ca_bundle_path(config: Config) -> str | None:
+    return config.ca_bundle_path or certifi.where()
+
+
+def _is_ssl_error(error: BaseException) -> bool:
+    if isinstance(error, ssl.SSLError):
+        return True
+    reason = getattr(error, "reason", None)
+    if isinstance(reason, ssl.SSLError):
+        return True
+    return "CERTIFICATE_VERIFY_FAILED" in str(error)
+
+
+def _ssl_error_message(ca_bundle_path: str | None) -> str:
+    detail = f" Current CA bundle: {ca_bundle_path}." if ca_bundle_path else ""
+    return (
+        "SSL certificate verification failed while connecting to Shopify."
+        " Ensure the Python environment has a valid CA bundle or set SHOPIFY_CA_BUNDLE / SSL_CERT_FILE."
+        f"{detail}"
+    )
+
+
+def _build_post_json(config: Config) -> HttpPostFn:
+    ca_bundle_path = _resolve_ca_bundle_path(config)
+    ssl_context = ssl.create_default_context(cafile=ca_bundle_path) if ca_bundle_path else ssl.create_default_context()
+
+    def _post_json(url: str, headers: dict[str, str], body: bytes) -> HttpResponse:
+        request = Request(url=url, data=body, headers=headers, method="POST")
+        try:
+            with urlopen(request, timeout=30, context=ssl_context) as response:
+                raw = response.read().decode("utf-8")
+                payload = json.loads(raw) if raw else None
+                status = int(response.status)
+                reason = getattr(response, "reason", "OK")
+                return HttpResponse(status=status, payload=payload, status_text=str(reason))
+        except HTTPError as error:
+            raw = error.read().decode("utf-8")
             payload = json.loads(raw) if raw else None
-            status = int(response.status)
-            reason = getattr(response, "reason", "OK")
-            return HttpResponse(status=status, payload=payload, status_text=str(reason))
-    except HTTPError as error:
-        raw = error.read().decode("utf-8")
-        payload = json.loads(raw) if raw else None
-        return HttpResponse(status=error.code, payload=payload, status_text=str(error.reason))
+            return HttpResponse(status=error.code, payload=payload, status_text=str(error.reason))
+        except URLError as error:
+            if _is_ssl_error(error):
+                raise RuntimeError(_ssl_error_message(ca_bundle_path)) from error
+            raise
+
+    return _post_json
 
 
 class ShopifyClient:
@@ -317,7 +352,7 @@ class ShopifyClient:
 
     def __init__(self, config: Config, post_json: HttpPostFn | None = None):
         self.config = config
-        self.post_json = post_json or _default_post_json
+        self.post_json = post_json or _build_post_json(config)
         self.endpoint = f"https://{config.store_domain}/admin/api/{config.api_version}/graphql.json"
         self.oauth_token_endpoint = f"https://{config.store_domain}/admin/oauth/access_token"
         self.cached_token: str | None = None

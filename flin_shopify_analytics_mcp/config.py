@@ -23,6 +23,7 @@ class Config:
     client_secret: str | None
     oauth_refresh_skew_seconds: int
     oauth_token_ttl_fallback_seconds: int
+    ca_bundle_path: str | None
 
 
 def _require_value(source: Mapping[str, str], key: str) -> str:
@@ -71,6 +72,7 @@ def parse_cli_args(argv: list[str]) -> dict[str, str]:
     parser.add_argument("--clientId", "--client-id", dest="client_id")
     parser.add_argument("--clientSecret", "--client-secret", dest="client_secret")
     parser.add_argument("--apiVersion", "--api-version", dest="api_version")
+    parser.add_argument("--caBundle", "--ca-bundle", dest="ca_bundle")
     parser.add_argument(
         "--oauthRefreshSkewSeconds",
         "--oauth-refresh-skew-seconds",
@@ -96,6 +98,8 @@ def parse_cli_args(argv: list[str]) -> dict[str, str]:
         output["SHOPIFY_CLIENT_SECRET"] = parsed.client_secret
     if parsed.api_version:
         output["SHOPIFY_API_VERSION"] = parsed.api_version
+    if parsed.ca_bundle:
+        output["SHOPIFY_CA_BUNDLE"] = parsed.ca_bundle
     if parsed.oauth_refresh_skew_seconds:
         output["SHOPIFY_OAUTH_REFRESH_SKEW_SECONDS"] = parsed.oauth_refresh_skew_seconds
     if parsed.oauth_token_ttl_fallback_seconds:
@@ -117,6 +121,7 @@ def load_config(
     static_access_token = _optional_value(source, "SHOPIFY_ADMIN_ACCESS_TOKEN")
     client_id = _optional_value(source, "SHOPIFY_CLIENT_ID")
     client_secret = _optional_value(source, "SHOPIFY_CLIENT_SECRET")
+    ca_bundle_path = _optional_value(source, "SHOPIFY_CA_BUNDLE") or _optional_value(source, "SSL_CERT_FILE")
 
     oauth_refresh_skew_seconds = _parse_positive_int(
         source.get("SHOPIFY_OAUTH_REFRESH_SKEW_SECONDS"),
@@ -151,4 +156,5 @@ def load_config(
         client_secret=client_secret,
         oauth_refresh_skew_seconds=oauth_refresh_skew_seconds,
         oauth_token_ttl_fallback_seconds=oauth_token_ttl_fallback_seconds,
+        ca_bundle_path=ca_bundle_path,
     )

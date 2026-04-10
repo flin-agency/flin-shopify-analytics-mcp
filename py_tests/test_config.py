@@ -45,6 +45,18 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.client_secret, "csecret")
         self.assertEqual(config.oauth_refresh_skew_seconds, 120)
         self.assertEqual(config.oauth_token_ttl_fallback_seconds, 7200)
+        self.assertIsNone(config.ca_bundle_path)
+
+    def test_load_config_uses_explicit_ca_bundle(self) -> None:
+        config = load_config(
+            {
+                "SHOPIFY_STORE_DOMAIN": "my-shop.myshopify.com",
+                "SHOPIFY_ADMIN_ACCESS_TOKEN": "secret-token",
+                "SHOPIFY_CA_BUNDLE": "/tmp/custom-ca.pem",
+                "SSL_CERT_FILE": "/tmp/system.pem",
+            }
+        )
+        self.assertEqual(config.ca_bundle_path, "/tmp/custom-ca.pem")
 
     def test_parse_cli_args_maps_flags(self) -> None:
         parsed = parse_cli_args(
@@ -57,6 +69,8 @@ class ConfigTests(unittest.TestCase):
                 "sec-1",
                 "--apiVersion",
                 "2026-01",
+                "--caBundle",
+                "/tmp/custom-ca.pem",
             ]
         )
         self.assertEqual(
@@ -66,6 +80,7 @@ class ConfigTests(unittest.TestCase):
                 "SHOPIFY_CLIENT_ID": "id-1",
                 "SHOPIFY_CLIENT_SECRET": "sec-1",
                 "SHOPIFY_API_VERSION": "2026-01",
+                "SHOPIFY_CA_BUNDLE": "/tmp/custom-ca.pem",
             },
         )
 
