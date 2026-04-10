@@ -130,7 +130,7 @@ python -m unittest discover -s py_tests -v
 1. Version in `pyproject.toml` und `flin_shopify_analytics_mcp/__init__.py` hochziehen.
 2. Commit + Push nach `main`.
 3. GitHub Release mit Tag `vX.Y.Z` erstellen.
-4. Workflow `.github/workflows/publish-pypi.yml` published automatisch auf PyPI (Trusted Publisher).
+4. Workflow `.github/workflows/release.yml` published automatisch auf PyPI (Trusted Publisher oder `PYPI_API_TOKEN`).
 
 Hinweis:
 - Fuer Trusted Publishing muss das PyPI-Projekt einmalig mit diesem GitHub-Repo/Workflow verknuepft sein.
