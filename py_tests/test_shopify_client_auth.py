@@ -7,7 +7,7 @@ from flin_shopify_analytics_mcp.config import Config
 from flin_shopify_analytics_mcp.shopify_client import HttpResponse, ShopifyClient
 
 
-GRAPHQL_URL = "https://my-shop.myshopify.com/admin/api/2025-01/graphql.json"
+GRAPHQL_URL = "https://my-shop.myshopify.com/admin/api/2026-04/graphql.json"
 TOKEN_URL = "https://my-shop.myshopify.com/admin/oauth/access_token"
 DUMMY_QUERY = "query Ping { shop { name } }"
 
@@ -23,7 +23,7 @@ class ShopifyClientAuthTests(unittest.TestCase):
         client = ShopifyClient(
             Config(
                 store_domain="my-shop.myshopify.com",
-                api_version="2025-01",
+                api_version="2026-04",
                 auth_mode="static_token",
                 static_access_token="shpat_static",
                 client_id=None,
@@ -56,7 +56,7 @@ class ShopifyClientAuthTests(unittest.TestCase):
         client = ShopifyClient(
             Config(
                 store_domain="my-shop.myshopify.com",
-                api_version="2025-01",
+                api_version="2026-04",
                 auth_mode="client_credentials",
                 static_access_token=None,
                 client_id="cid",
@@ -92,7 +92,7 @@ class ShopifyClientAuthTests(unittest.TestCase):
         client = ShopifyClient(
             Config(
                 store_domain="my-shop.myshopify.com",
-                api_version="2025-01",
+                api_version="2026-04",
                 auth_mode="client_credentials",
                 static_access_token=None,
                 client_id="cid",

@@ -26,7 +26,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.static_access_token, "secret-token")
         self.assertIsNone(config.client_id)
         self.assertIsNone(config.client_secret)
-        self.assertEqual(config.api_version, "2025-01")
+        self.assertEqual(config.api_version, "2026-04")
         self.assertEqual(config.oauth_refresh_skew_seconds, 60)
         self.assertEqual(config.oauth_token_ttl_fallback_seconds, 86399)
 

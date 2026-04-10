@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { ShopifyClient } from "../src/shopify-client.js";
 
-const GRAPHQL_URL = "https://my-shop.myshopify.com/admin/api/2025-01/graphql.json";
+const GRAPHQL_URL = "https://my-shop.myshopify.com/admin/api/2026-04/graphql.json";
 const TOKEN_URL = "https://my-shop.myshopify.com/admin/oauth/access_token";
 const DUMMY_QUERY = "query Ping { shop { name } }";
 
@@ -28,7 +28,7 @@ test("static token mode sends GraphQL request without oauth token exchange", asy
   const client = new ShopifyClient(
     {
       storeDomain: "my-shop.myshopify.com",
-      apiVersion: "2025-01",
+      apiVersion: "2026-04",
       authMode: "static_token",
       staticAccessToken: "shpat_static"
     },
@@ -58,7 +58,7 @@ test("client credentials mode exchanges token once and reuses it while valid", a
   const client = new ShopifyClient(
     {
       storeDomain: "my-shop.myshopify.com",
-      apiVersion: "2025-01",
+      apiVersion: "2026-04",
       authMode: "client_credentials",
       clientId: "cid",
       clientSecret: "csecret",
@@ -97,7 +97,7 @@ test("client credentials mode refreshes token when cached token is almost expire
   const client = new ShopifyClient(
     {
       storeDomain: "my-shop.myshopify.com",
-      apiVersion: "2025-01",
+      apiVersion: "2026-04",
       authMode: "client_credentials",
       clientId: "cid",
       clientSecret: "csecret",

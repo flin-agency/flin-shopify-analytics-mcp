@@ -36,7 +36,7 @@ uvx --from flin-shopify-analytics-mcp shopify-mcp \
   --domain your-store.myshopify.com \
   --clientId your_client_id \
   --clientSecret your_client_secret \
-  --apiVersion 2025-01
+  --apiVersion 2026-04
 ```
 
 ### Option B: Lokal entwickeln
@@ -56,7 +56,7 @@ Option 1: Client Credentials (neue Dev Dashboard Apps)
 export SHOPIFY_STORE_DOMAIN="your-store.myshopify.com"
 export SHOPIFY_CLIENT_ID="your_client_id"
 export SHOPIFY_CLIENT_SECRET="your_client_secret"
-export SHOPIFY_API_VERSION="2025-01"
+export SHOPIFY_API_VERSION="2026-04"
 ```
 
 Option 2: Legacy Static Access Token
@@ -64,7 +64,7 @@ Option 2: Legacy Static Access Token
 ```bash
 export SHOPIFY_STORE_DOMAIN="your-store.myshopify.com"
 export SHOPIFY_ADMIN_ACCESS_TOKEN="shpat_xxx"
-export SHOPIFY_API_VERSION="2025-01"
+export SHOPIFY_API_VERSION="2026-04"
 ```
 
 Hinweis:
@@ -91,7 +91,7 @@ Hinweis:
         "--clientSecret",
         "your_client_secret",
         "--apiVersion",
-        "2025-01"
+        "2026-04"
       ]
     }
   }
@@ -110,7 +110,7 @@ Hinweis:
         "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
         "SHOPIFY_CLIENT_ID": "your_client_id",
         "SHOPIFY_CLIENT_SECRET": "your_client_secret",
-        "SHOPIFY_API_VERSION": "2025-01"
+        "SHOPIFY_API_VERSION": "2026-04"
       }
     }
   }

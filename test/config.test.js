@@ -31,7 +31,7 @@ test("loadConfig normalizes store domain and loads defaults for static token mod
   assert.equal(config.accessToken, undefined);
   assert.equal(config.oauthRefreshSkewSeconds, 60);
   assert.equal(config.oauthTokenTtlFallbackSeconds, 86399);
-  assert.equal(config.apiVersion, "2025-01");
+  assert.equal(config.apiVersion, "2026-04");
 });
 
 test("loadConfig supports client credentials mode", () => {
