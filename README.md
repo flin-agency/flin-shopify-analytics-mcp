@@ -83,7 +83,7 @@ Hinweis:
       "args": [
         "-q",
         "--from",
-        "flin-shopify-analytics-mcp@0.2.3",
+        "flin-shopify-analytics-mcp@0.2.4",
         "flin-shopify-analytics-mcp",
         "--domain",
         "your-store.myshopify.com",
@@ -106,7 +106,7 @@ Hinweis:
   "mcpServers": {
     "shopify-analytics": {
       "command": "uvx",
-      "args": ["-q", "--from", "flin-shopify-analytics-mcp@0.2.3", "flin-shopify-analytics-mcp"],
+      "args": ["-q", "--from", "flin-shopify-analytics-mcp@0.2.4", "flin-shopify-analytics-mcp"],
       "env": {
         "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
         "SHOPIFY_CLIENT_ID": "your_client_id",

@@ -6,7 +6,11 @@ import sys
 import unittest
 
 
-INIT_PAYLOAD = b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+INIT_PAYLOAD = (
+    b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25",'
+    b'"capabilities":{"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}},'
+    b'"clientInfo":{"name":"claude-ai","version":"0.1.0"}}}'
+)
 
 
 def _run_server_with_input(raw_input: bytes) -> tuple[bytes, bytes, int]:
@@ -38,6 +42,7 @@ class StdioProtocolTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(err, b"")
         self.assertIn(b'"result"', out)
+        self.assertIn(b'"protocolVersion":"2025-11-25"', out.replace(b" ", b""))
 
     def test_handles_lf_only_headers(self) -> None:
         raw_input = b"Content-Length: " + str(len(INIT_PAYLOAD)).encode("ascii") + b"\n\n" + INIT_PAYLOAD
@@ -45,6 +50,7 @@ class StdioProtocolTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(err, b"")
         self.assertIn(b'"result"', out)
+        self.assertIn(b'"protocolVersion":"2025-11-25"', out.replace(b" ", b""))
 
 
 if __name__ == "__main__":

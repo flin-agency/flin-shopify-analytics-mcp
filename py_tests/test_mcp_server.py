@@ -62,6 +62,8 @@ class McpServerTests(unittest.TestCase):
         assert response is not None
         self.assertEqual(response["result"]["protocolVersion"], "2025-03-26")
         self.assertIn("tools", response["result"]["capabilities"])
+        self.assertIn("resources", response["result"]["capabilities"])
+        self.assertIn("instructions", response["result"])
 
     def test_tools_list_returns_read_only_tools(self) -> None:
         server = ShopifyAnalyticsMcpServer(client=FakeShopifyClient())

@@ -55,8 +55,9 @@ def _read_frames(stdin: Any):
 
 
 def _write_frame(stdout: Any, payload: dict[str, Any]) -> None:
-    body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
-    header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    # Claude's current MCP bridge appears to be happiest with LF-only separators.
+    header = f"Content-Length: {len(body)}\n\n".encode("utf-8")
     stdout.buffer.write(header + body)
     stdout.flush()
 
