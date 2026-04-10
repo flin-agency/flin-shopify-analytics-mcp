@@ -1,35 +1,170 @@
 # flin-shopify-analytics-mcp
 
-Read-only MCP Server fuer Shopify Analytics, verteilbar ueber PyPI.
+Read-only MCP server for Shopify analytics.
 
-Ziel: alle wichtigen Shop-Daten abfragen und insbesondere beantworten koennen:
-- wer gekauft hat
-- was gekauft wurde
-- wie viel gekauft wurde
-- wie viel Umsatz je Kunde entstanden ist
+Der Server ist dafür gedacht, Shopify-Shop-Daten in Claude oder anderen MCP-Clients lesend abzufragen, zum Beispiel:
 
-## Features (v1, nur read)
+- Welche Kunden haben bestellt?
+- Welche Produkte wurden gekauft?
+- Wie viele Einheiten wurden gekauft?
+- Wie viel Umsatz hat ein Kunde erzeugt?
 
-- `shopify_list_orders`: Orders mit Kunde, Betrag und Line-Items
-- `shopify_list_customers`: Kunden mit Bestellanzahl und Amount Spent
-- `shopify_list_products`: Produkte/Varianten mit SKU, Preis, Bestand
-- `shopify_customer_purchase_summary`: Zusammenfassung pro Kunde
-- `shopify_sales_by_customer_product`: Aggregation "wer hat was wie viel gekauft"
+## Was dieser MCP kann
 
-Der Server blockiert GraphQL `mutation`-Operationen explizit.
+Der Server stellt diese Tools bereit:
+
+- `shopify_list_orders`
+- `shopify_list_customers`
+- `shopify_list_products`
+- `shopify_customer_purchase_summary`
+- `shopify_sales_by_customer_product`
+
+Write-Operationen sind nicht erlaubt. GraphQL-Mutationen werden blockiert.
+
+## Wichtig: Ohne Shopify-App funktioniert dieser MCP nicht
+
+Du brauchst für den Ziel-Shop immer eine installierte Shopify-App mit Admin-API-Rechten.
+
+Je nach App-Typ bekommst du unterschiedliche Credentials:
+
+- Neue Apps ab 2026: `Client ID` + `Client Secret`
+- Bestehende Legacy-Custom-Apps: `Admin API access token` (`shpat_...`)
+
+Ohne installierte App und passende Scopes kann der MCP keine Orders, Kunden oder Produkte lesen.
 
 ## Voraussetzungen
 
 - Python 3.10+
-- `uv` (empfohlen fuer `uvx`) oder `pip`
-- Shopify App mit mindestens diesen Scopes:
-  - `read_orders`
-  - `read_customers`
-  - `read_products`
+- `uv` oder `uvx`
+- Zugriff auf den Shopify-Store
+- Berechtigung, eine App für den Store zu erstellen und zu installieren
 
-## Nutzung
+## Shopify-App erstellen
 
-### Option A: Direkt ueber PyPI mit uvx (empfohlen)
+### Empfohlen: Dev Dashboard App mit Client Credentials
+
+Das ist der richtige Weg für neue Shopify-Apps.
+
+1. Öffne den Shopify Dev Dashboard Bereich für deine App.
+2. Erstelle eine App für den Ziel-Store.
+3. Konfiguriere die Admin-API-Scopes.
+4. Release die App-Version mit diesen Scopes.
+5. Installiere die App auf dem Store.
+6. Öffne in der App `Settings` und kopiere:
+   - `Client ID`
+   - `Client secret`
+
+Für diesen MCP brauchst du mindestens diese Scopes:
+
+- `read_products`
+- `read_customers`
+- `read_orders`
+
+Optional:
+
+- `read_all_orders`
+
+`read_all_orders` ist sinnvoll, wenn du nicht nur die normalen Standard-Zeiträume von Shopify auslesen willst.
+
+### Legacy: Bestehende Custom App im Shopify Admin
+
+Nur für bereits existierende Admin-Custom-Apps.
+
+1. Öffne die bestehende Custom App im Shopify Admin.
+2. Stelle sicher, dass die App installiert ist.
+3. Prüfe die Admin-API-Scopes.
+4. Kopiere den `Admin API access token`.
+
+Auch hier brauchst du mindestens:
+
+- `read_products`
+- `read_customers`
+- `read_orders`
+
+## Welche Credentials du eintragen musst
+
+### Option A: Dev Dashboard App
+
+Verwende diese Variablen:
+
+```bash
+SHOPIFY_STORE_DOMAIN="your-store.myshopify.com"
+SHOPIFY_CLIENT_ID="your_client_id"
+SHOPIFY_CLIENT_SECRET="your_client_secret"
+SHOPIFY_API_VERSION="2026-04"
+```
+
+Der MCP holt das Access Token automatisch über den Client-Credentials-Flow und erneuert es selbst.
+
+### Option B: Legacy Custom App
+
+Verwende diese Variablen:
+
+```bash
+SHOPIFY_STORE_DOMAIN="your-store.myshopify.com"
+SHOPIFY_ADMIN_ACCESS_TOKEN="shpat_xxx"
+SHOPIFY_API_VERSION="2026-04"
+```
+
+Wenn `SHOPIFY_ADMIN_ACCESS_TOKEN` gesetzt ist, verwendet der MCP den statischen Token-Modus.
+
+## Claude Desktop Konfiguration
+
+### Variante 1: Über PyPI mit `uvx`
+
+Die Beispiele unten sind auf `0.2.6` gepinnt. Wenn später eine neuere Version veröffentlicht ist, kannst du die Versionsnummer anpassen.
+
+```json
+{
+  "mcpServers": {
+    "flin-shopify-analytics-mcp": {
+      "command": "uvx",
+      "args": [
+        "--refresh",
+        "-q",
+        "flin-shopify-analytics-mcp@0.2.6"
+      ],
+      "env": {
+        "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
+        "SHOPIFY_CLIENT_ID": "your_client_id",
+        "SHOPIFY_CLIENT_SECRET": "your_client_secret",
+        "SHOPIFY_API_VERSION": "2026-04"
+      }
+    }
+  }
+}
+```
+
+### Variante 2: Lokal aus dem Repo
+
+Das ist die stabilste Variante für Entwicklung und Debugging.
+
+```json
+{
+  "mcpServers": {
+    "flin-shopify-analytics-mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--quiet",
+        "--directory",
+        "/Users/nicolasg/Antigravity/flin-shopify-analytics-mcp",
+        "flin-shopify-analytics-mcp"
+      ],
+      "env": {
+        "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
+        "SHOPIFY_CLIENT_ID": "your_client_id",
+        "SHOPIFY_CLIENT_SECRET": "your_client_secret",
+        "SHOPIFY_API_VERSION": "2026-04"
+      }
+    }
+  }
+}
+```
+
+## Lokaler Start ohne Claude
+
+### Mit Client ID / Client Secret
 
 ```bash
 uvx --refresh -q flin-shopify-analytics-mcp@0.2.6 \
@@ -39,106 +174,81 @@ uvx --refresh -q flin-shopify-analytics-mcp@0.2.6 \
   --apiVersion 2026-04
 ```
 
-### Option B: Lokal entwickeln
+### Mit statischem Admin-Token
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-flin-shopify-analytics-mcp --domain your-store.myshopify.com --clientId your_client_id --clientSecret your_client_secret
+uvx --refresh -q flin-shopify-analytics-mcp@0.2.6 \
+  --domain your-store.myshopify.com \
+  --accessToken shpat_xxx \
+  --apiVersion 2026-04
 ```
 
-## Auth-Optionen
+## TLS / SSL
 
-Option 1: Client Credentials (neue Dev Dashboard Apps)
+Der MCP verwendet standardmäßig das `certifi`-CA-Bundle.
+
+Falls deine Umgebung einen Firmen-Proxy oder eigene Root-Zertifikate benutzt, kannst du zusätzlich setzen:
 
 ```bash
-export SHOPIFY_STORE_DOMAIN="your-store.myshopify.com"
-export SHOPIFY_CLIENT_ID="your_client_id"
-export SHOPIFY_CLIENT_SECRET="your_client_secret"
-export SHOPIFY_API_VERSION="2026-04"
-export SHOPIFY_CA_BUNDLE="/path/to/ca-bundle.pem"  # optional
+SHOPIFY_CA_BUNDLE="/path/to/ca-bundle.pem"
 ```
 
-Option 2: Legacy Static Access Token
+Alternativ funktioniert auch:
 
 ```bash
-export SHOPIFY_STORE_DOMAIN="your-store.myshopify.com"
-export SHOPIFY_ADMIN_ACCESS_TOKEN="shpat_xxx"
-export SHOPIFY_API_VERSION="2026-04"
+SSL_CERT_FILE="/path/to/ca-bundle.pem"
 ```
 
-Hinweis:
-- Bei `client_credentials` wird das Access Token automatisch angefordert und kurz vor Ablauf erneuert.
-- Wenn sowohl `SHOPIFY_ADMIN_ACCESS_TOKEN` als auch `SHOPIFY_CLIENT_ID/SHOPIFY_CLIENT_SECRET` gesetzt sind, gewinnt der statische Token-Modus.
-- Fuer TLS nutzt der MCP standardmaessig das `certifi`-CA-Bundle. Bei firmeneigenen Proxies oder abweichenden Zertifikatsketten kann `SHOPIFY_CA_BUNDLE` oder `SSL_CERT_FILE` gesetzt werden.
+## Troubleshooting
 
-## MCP Client Konfiguration (Beispiel)
+### `SSL: CERTIFICATE_VERIFY_FAILED`
 
-### Claude Desktop mit uvx
+Dann kann die Python-Umgebung die Zertifikatskette nicht verifizieren.
+
+Prüfe in dieser Reihenfolge:
+
+1. Ob du auf `0.2.6` oder neuer bist
+2. Ob ein Firmen-Proxy oder eigenes Root-CA im Spiel ist
+3. Ob `SHOPIFY_CA_BUNDLE` oder `SSL_CERT_FILE` gesetzt werden muss
+
+### `no version of flin-shopify-analytics-mcp == ...`
+
+Dann hängt `uvx` meistens noch auf einem alten Index-Stand.
+
+Hilfreich:
+
+```bash
+uv cache clean flin-shopify-analytics-mcp
+```
+
+Und in der Claude-Konfiguration:
 
 ```json
-{
-  "mcpServers": {
-    "shopify-analytics": {
-      "command": "uvx",
-      "args": [
-        "--refresh",
-        "-q",
-        "flin-shopify-analytics-mcp@0.2.6",
-        "--domain",
-        "your-store.myshopify.com",
-        "--clientId",
-        "your_client_id",
-        "--clientSecret",
-        "your_client_secret",
-        "--apiVersion",
-        "2026-04"
-      ]
-    }
-  }
-}
+"args": ["--refresh", "-q", "flin-shopify-analytics-mcp@0.2.6"]
 ```
-
-### Alternative mit ENV
-
-```json
-{
-  "mcpServers": {
-    "shopify-analytics": {
-      "command": "uvx",
-      "args": ["--refresh", "-q", "flin-shopify-analytics-mcp@0.2.6"],
-      "env": {
-        "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
-        "SHOPIFY_CLIENT_ID": "your_client_id",
-        "SHOPIFY_CLIENT_SECRET": "your_client_secret",
-        "SHOPIFY_API_VERSION": "2026-04",
-        "SHOPIFY_CA_BUNDLE": "/path/to/ca-bundle.pem"
-      }
-    }
-  }
-}
-```
-
-Troubleshooting:
-- Wenn Claude weiterhin eine alte oder fehlende Version meldet, liegt das fast immer am lokalen `uv`-Index-Cache. `--refresh` erzwingt die Aktualisierung.
-- Fuer einen einmaligen lokalen Reset hilft `uv cache clean flin-shopify-analytics-mcp`.
-- Bei `SSL: CERTIFICATE_VERIFY_FAILED` nutzt der MCP jetzt standardmaessig `certifi`. Wenn deine Umgebung eigene Root-CAs oder einen Proxy nutzt, setze `SHOPIFY_CA_BUNDLE` oder `SSL_CERT_FILE`.
 
 ## Entwicklung
 
-Python Tests:
+Tests:
 
 ```bash
 python -m unittest discover -s py_tests -v
 ```
 
-## Release auf PyPI
+Build:
 
-1. Version in `pyproject.toml` und `flin_shopify_analytics_mcp/__init__.py` hochziehen.
-2. Commit + Push nach `main`.
-3. GitHub Release mit Tag `vX.Y.Z` erstellen.
-4. Workflow `.github/workflows/release.yml` published automatisch auf PyPI (Trusted Publisher oder `PYPI_API_TOKEN`).
+```bash
+uv build
+```
 
-Hinweis:
-- Fuer Trusted Publishing muss das PyPI-Projekt einmalig mit diesem GitHub-Repo/Workflow verknuepft sein.
+## Release
+
+1. Version in `pyproject.toml`, `flin_shopify_analytics_mcp/__init__.py` und `flin_shopify_analytics_mcp/mcp_server.py` anheben
+2. Commit erstellen
+3. Tag `vX.Y.Z` pushen
+4. GitHub Actions Workflow `.github/workflows/release.yml` veröffentlicht auf PyPI
+
+## Offizielle Shopify-Doku
+
+- Dev Dashboard App und Client Credentials: https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens
+- Legacy Custom Apps im Shopify Admin: https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/generate-app-access-tokens-admin
