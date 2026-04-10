@@ -32,7 +32,7 @@ Der Server blockiert GraphQL `mutation`-Operationen explizit.
 ### Option A: Direkt ueber PyPI mit uvx (empfohlen)
 
 ```bash
-uvx --from flin-shopify-analytics-mcp shopify-mcp \
+uvx -q --from flin-shopify-analytics-mcp flin-shopify-analytics-mcp \
   --domain your-store.myshopify.com \
   --clientId your_client_id \
   --clientSecret your_client_secret \
@@ -45,7 +45,7 @@ uvx --from flin-shopify-analytics-mcp shopify-mcp \
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-shopify-mcp --domain your-store.myshopify.com --clientId your_client_id --clientSecret your_client_secret
+flin-shopify-analytics-mcp --domain your-store.myshopify.com --clientId your_client_id --clientSecret your_client_secret
 ```
 
 ## Auth-Optionen
@@ -81,9 +81,10 @@ Hinweis:
     "shopify-analytics": {
       "command": "uvx",
       "args": [
+        "-q",
         "--from",
+        "flin-shopify-analytics-mcp@0.2.3",
         "flin-shopify-analytics-mcp",
-        "shopify-mcp",
         "--domain",
         "your-store.myshopify.com",
         "--clientId",
@@ -105,7 +106,7 @@ Hinweis:
   "mcpServers": {
     "shopify-analytics": {
       "command": "uvx",
-      "args": ["--from", "flin-shopify-analytics-mcp", "shopify-mcp"],
+      "args": ["-q", "--from", "flin-shopify-analytics-mcp@0.2.3", "flin-shopify-analytics-mcp"],
       "env": {
         "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
         "SHOPIFY_CLIENT_ID": "your_client_id",

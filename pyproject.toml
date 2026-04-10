@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flin-shopify-analytics-mcp"
-version = "0.2.2"
+version = "0.2.3"
 description = "Read-only MCP server for Shopify analytics with client credentials or static token auth."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,6 @@ Issues = "https://github.com/flin-agency/flin-shopify-analytics-mcp/issues"
 
 [project.scripts]
 flin-shopify-analytics-mcp = "flin_shopify_analytics_mcp.__main__:main"
-shopify-mcp = "flin_shopify_analytics_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["flin_shopify_analytics_mcp"]
