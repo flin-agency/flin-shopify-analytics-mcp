@@ -1,0 +1,17 @@
+{
+  "name": "flin-shopify-analytics-mcp",
+  "version": "0.1.0",
+  "description": "Read-only MCP server for Shopify shop analytics.",
+  "type": "module",
+  "bin": {
+    "flin-shopify-analytics-mcp": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
