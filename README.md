@@ -32,7 +32,7 @@ Der Server blockiert GraphQL `mutation`-Operationen explizit.
 ### Option A: Direkt ueber PyPI mit uvx (empfohlen)
 
 ```bash
-uvx -q --from flin-shopify-analytics-mcp flin-shopify-analytics-mcp \
+uvx --refresh -q flin-shopify-analytics-mcp@0.2.5 \
   --domain your-store.myshopify.com \
   --clientId your_client_id \
   --clientSecret your_client_secret \
@@ -81,10 +81,9 @@ Hinweis:
     "shopify-analytics": {
       "command": "uvx",
       "args": [
+        "--refresh",
         "-q",
-        "--from",
-        "flin-shopify-analytics-mcp@0.2.4",
-        "flin-shopify-analytics-mcp",
+        "flin-shopify-analytics-mcp@0.2.5",
         "--domain",
         "your-store.myshopify.com",
         "--clientId",
@@ -106,7 +105,7 @@ Hinweis:
   "mcpServers": {
     "shopify-analytics": {
       "command": "uvx",
-      "args": ["-q", "--from", "flin-shopify-analytics-mcp@0.2.4", "flin-shopify-analytics-mcp"],
+      "args": ["--refresh", "-q", "flin-shopify-analytics-mcp@0.2.5"],
       "env": {
         "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
         "SHOPIFY_CLIENT_ID": "your_client_id",
@@ -117,6 +116,10 @@ Hinweis:
   }
 }
 ```
+
+Troubleshooting:
+- Wenn Claude weiterhin eine alte oder fehlende Version meldet, liegt das fast immer am lokalen `uv`-Index-Cache. `--refresh` erzwingt die Aktualisierung.
+- Fuer einen einmaligen lokalen Reset hilft `uv cache clean flin-shopify-analytics-mcp`.
 
 ## Entwicklung
 

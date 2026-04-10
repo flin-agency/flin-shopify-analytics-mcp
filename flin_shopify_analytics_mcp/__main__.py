@@ -25,6 +25,11 @@ def _find_header_end(buffer: bytes) -> tuple[int, int]:
     return min(candidates, key=lambda item: item[0])
 
 
+def _looks_like_json_line(buffer: bytes) -> bool:
+    stripped = buffer.lstrip()
+    return stripped.startswith(b"{") or stripped.startswith(b"[")
+
+
 def _read_frames(stdin: Any):
     buffer = b""
     while True:
@@ -33,6 +38,16 @@ def _read_frames(stdin: Any):
             break
         buffer += chunk
         while True:
+            if _looks_like_json_line(buffer):
+                newline_pos = buffer.find(b"\n")
+                if newline_pos < 0:
+                    break
+                payload = buffer[:newline_pos].strip()
+                buffer = buffer[newline_pos + 1 :]
+                if payload:
+                    yield payload
+                continue
+
             header_end, separator_len = _find_header_end(buffer)
             if header_end < 0:
                 break
@@ -53,12 +68,15 @@ def _read_frames(stdin: Any):
             buffer = buffer[frame_end:]
             yield payload
 
+    payload = buffer.strip()
+    if payload and _looks_like_json_line(payload):
+        yield payload
+
 
 def _write_frame(stdout: Any, payload: dict[str, Any]) -> None:
-    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
-    # Claude's current MCP bridge appears to be happiest with LF-only separators.
-    header = f"Content-Length: {len(body)}\n\n".encode("utf-8")
-    stdout.buffer.write(header + body)
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
+    stdout.write(body)
+    stdout.write("\n")
     stdout.flush()
 
 

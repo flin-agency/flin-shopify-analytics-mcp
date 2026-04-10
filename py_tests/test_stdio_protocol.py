@@ -52,6 +52,16 @@ class StdioProtocolTests(unittest.TestCase):
         self.assertIn(b'"result"', out)
         self.assertIn(b'"protocolVersion":"2025-11-25"', out.replace(b" ", b""))
 
+    def test_handles_line_delimited_json_messages(self) -> None:
+        raw_input = INIT_PAYLOAD + b"\n"
+        out, err, code = _run_server_with_input(raw_input)
+        self.assertEqual(code, 0)
+        self.assertEqual(err, b"")
+        self.assertIn(b'"result"', out)
+        self.assertIn(b'"protocolVersion":"2025-11-25"', out.replace(b" ", b""))
+        self.assertNotIn(b"Content-Length:", out)
+        self.assertTrue(out.endswith(b"\n"))
+
 
 if __name__ == "__main__":
     unittest.main()
