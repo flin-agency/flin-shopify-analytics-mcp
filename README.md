@@ -1,6 +1,6 @@
 # flin-shopify-analytics-mcp
 
-Read-only MCP Server fuer Shopify Analytics.
+Read-only MCP Server fuer Shopify Analytics, verteilbar ueber PyPI.
 
 Ziel: alle wichtigen Shop-Daten abfragen und insbesondere beantworten koennen:
 - wer gekauft hat
@@ -20,21 +20,35 @@ Der Server blockiert GraphQL `mutation`-Operationen explizit.
 
 ## Voraussetzungen
 
-- Node.js 20+
-- Shopify Custom App mit mindestens diesen Scopes:
-- `read_orders`
-- `read_customers`
-- `read_products`
+- Python 3.10+
+- `uv` (empfohlen fuer `uvx`) oder `pip`
+- Shopify App mit mindestens diesen Scopes:
+  - `read_orders`
+  - `read_customers`
+  - `read_products`
 
-## Setup
+## Nutzung
 
-1. Abhaengigkeiten installieren (nur fuer npm scripts):
+### Option A: Direkt ueber PyPI mit uvx (empfohlen)
 
 ```bash
-npm install
+uvx --from flin-shopify-analytics-mcp shopify-mcp \
+  --domain your-store.myshopify.com \
+  --clientId your_client_id \
+  --clientSecret your_client_secret \
+  --apiVersion 2025-01
 ```
 
-2. Umgebungsvariablen setzen (siehe `.env.example`).
+### Option B: Lokal entwickeln
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+shopify-mcp --domain your-store.myshopify.com --clientId your_client_id --clientSecret your_client_secret
+```
+
+## Auth-Optionen
 
 Option 1: Client Credentials (neue Dev Dashboard Apps)
 
@@ -57,23 +71,19 @@ Hinweis:
 - Bei `client_credentials` wird das Access Token automatisch angefordert und kurz vor Ablauf erneuert.
 - Wenn sowohl `SHOPIFY_ADMIN_ACCESS_TOKEN` als auch `SHOPIFY_CLIENT_ID/SHOPIFY_CLIENT_SECRET` gesetzt sind, gewinnt der statische Token-Modus.
 
-3. MCP Server starten:
-
-```bash
-npm start
-```
-
 ## MCP Client Konfiguration (Beispiel)
 
-### Mit CLI Args (Client Credentials)
+### Claude Desktop mit uvx
 
 ```json
 {
   "mcpServers": {
     "shopify-analytics": {
-      "command": "node",
+      "command": "uvx",
       "args": [
-        "/Users/nicolasg/Antigravity/flin-shopify-analytics-mcp/src/index.js",
+        "--from",
+        "flin-shopify-analytics-mcp",
+        "shopify-mcp",
         "--domain",
         "your-store.myshopify.com",
         "--clientId",
@@ -88,14 +98,14 @@ npm start
 }
 ```
 
-### Mit Environment Variables
+### Alternative mit ENV
 
 ```json
 {
   "mcpServers": {
     "shopify-analytics": {
-      "command": "node",
-      "args": ["/Users/nicolasg/Antigravity/flin-shopify-analytics-mcp/src/index.js"],
+      "command": "uvx",
+      "args": ["--from", "flin-shopify-analytics-mcp", "shopify-mcp"],
       "env": {
         "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
         "SHOPIFY_CLIENT_ID": "your_client_id",
@@ -109,8 +119,18 @@ npm start
 
 ## Entwicklung
 
-Tests laufen mit:
+Python Tests:
 
 ```bash
-npm test
+python -m unittest discover -s py_tests -v
 ```
+
+## Release auf PyPI
+
+1. Version in `pyproject.toml` und `flin_shopify_analytics_mcp/__init__.py` hochziehen.
+2. Commit + Push nach `main`.
+3. GitHub Release mit Tag `vX.Y.Z` erstellen.
+4. Workflow `.github/workflows/publish-pypi.yml` published automatisch auf PyPI (Trusted Publisher).
+
+Hinweis:
+- Fuer Trusted Publishing muss das PyPI-Projekt einmalig mit diesem GitHub-Repo/Workflow verknuepft sein.
