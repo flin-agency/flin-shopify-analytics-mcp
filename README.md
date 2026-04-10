@@ -1,0 +1,1 @@
+# flin-shopify-analytics-mcp
