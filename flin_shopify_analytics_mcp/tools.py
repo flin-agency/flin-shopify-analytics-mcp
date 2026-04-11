@@ -8,9 +8,13 @@ from typing import Any
 from .analytics import (
     aggregate_by_customer_product,
     discount_analysis,
+    inactive_customer_summary,
     previous_period_window,
+    repeat_purchase_windows,
+    retention_overview,
     sales_overview,
     sales_timeseries,
+    time_to_second_order,
     top_customers,
     top_products,
 )
@@ -164,6 +168,64 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "shopify_retention_overview",
+        "description": "Retention KPIs for customers whose first order happened in the selected cohort window.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "asOfDate": {"type": "string", "format": "date-time"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1000},
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "shopify_repeat_purchase_windows",
+        "description": "Repeat purchase rates for fixed 30/60/90/180-day windows.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "asOfDate": {"type": "string", "format": "date-time"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1000},
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "shopify_time_to_second_order",
+        "description": "Distribution and summary stats for days between first and second order.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "asOfDate": {"type": "string", "format": "date-time"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1000},
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "shopify_inactive_customer_summary",
+        "description": "Customer inactivity summary for fixed 30/60/90/180-day windows.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "asOfDate": {"type": "string", "format": "date-time"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1000},
+            },
+            "required": ["asOfDate"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -190,6 +252,15 @@ def call_tool(client: Any, name: str, args: dict[str, Any] | None = None) -> dic
             query=args.get("query"),
             createdAfter=created_after,
             createdBefore=date_to,
+        )
+
+    def _load_retention_orders() -> list[dict[str, Any]]:
+        as_of_date = str(args.get("asOfDate") or args.get("dateTo") or "")
+        if not as_of_date:
+            raise ValueError("asOfDate or dateTo is required.")
+        return client.list_orders(
+            limit=int(args.get("limit") or 1000),
+            createdBefore=as_of_date,
         )
 
     if name == "shopify_list_orders":
@@ -256,5 +327,36 @@ def call_tool(client: Any, name: str, args: dict[str, Any] | None = None) -> dic
             date_to=args["dateTo"],
             limit=int(args.get("limit") or 10),
         )
+        return _as_tool_result(result)
+    if name == "shopify_retention_overview":
+        orders = _load_retention_orders()
+        result = retention_overview(
+            orders,
+            date_from=args["dateFrom"],
+            date_to=args["dateTo"],
+            as_of_date=args.get("asOfDate"),
+        )
+        return _as_tool_result(result)
+    if name == "shopify_repeat_purchase_windows":
+        orders = _load_retention_orders()
+        result = repeat_purchase_windows(
+            orders,
+            date_from=args["dateFrom"],
+            date_to=args["dateTo"],
+            as_of_date=args.get("asOfDate"),
+        )
+        return _as_tool_result(result)
+    if name == "shopify_time_to_second_order":
+        orders = _load_retention_orders()
+        result = time_to_second_order(
+            orders,
+            date_from=args["dateFrom"],
+            date_to=args["dateTo"],
+            as_of_date=args.get("asOfDate"),
+        )
+        return _as_tool_result(result)
+    if name == "shopify_inactive_customer_summary":
+        orders = _load_retention_orders()
+        result = inactive_customer_summary(orders, as_of_date=args["asOfDate"])
         return _as_tool_result(result)
     raise ValueError(f"Unknown tool: {name}")

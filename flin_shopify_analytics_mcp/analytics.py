@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from statistics import median
 from typing import Any
 
 
@@ -37,7 +38,21 @@ def _customer_key(customer: dict[str, Any] | None) -> str:
     return "guest"
 
 
+def _trackable_customer_key(customer: dict[str, Any] | None) -> str | None:
+    if not customer:
+        return None
+    if customer.get("id"):
+        return str(customer["id"])
+    if customer.get("email"):
+        return f"email:{customer['email']}"
+    return None
+
+
 def _round_money(value: float) -> float:
+    return round(value, 2)
+
+
+def _round_number(value: float) -> float:
     return round(value, 2)
 
 
@@ -74,6 +89,92 @@ def _previous_period(date_from: str, date_to: str) -> tuple[str, str]:
 
 def previous_period_window(date_from: str, date_to: str) -> tuple[str, str]:
     return _previous_period(date_from, date_to)
+
+
+def _days_between(start: datetime, end: datetime) -> int:
+    return int((end - start).total_seconds() // 86400)
+
+
+def _customer_histories(orders: list[dict[str, Any]], as_of_date: str | None = None) -> list[dict[str, Any]]:
+    cutoff = _normalize_datetime(as_of_date) if as_of_date else None
+    grouped: dict[str, dict[str, Any]] = {}
+    for order in orders:
+        customer = order.get("customer") or {}
+        key = _trackable_customer_key(customer)
+        if not key:
+            continue
+        created_at = order.get("createdAt")
+        if not created_at:
+            continue
+        created_dt = _normalize_datetime(created_at)
+        if cutoff and created_dt > cutoff:
+            continue
+        entry = grouped.setdefault(
+            key,
+            {
+                "customerId": customer.get("id"),
+                "customerName": customer.get("name") or customer.get("displayName"),
+                "customerEmail": customer.get("email"),
+                "orders": [],
+            },
+        )
+        entry["orders"].append(order)
+
+    histories: list[dict[str, Any]] = []
+    for entry in grouped.values():
+        sorted_orders = sorted(entry["orders"], key=lambda order: _normalize_datetime(order["createdAt"]))
+        first_order = sorted_orders[0]
+        first_order_at = _normalize_datetime(first_order["createdAt"])
+        second_order = sorted_orders[1] if len(sorted_orders) > 1 else None
+        second_order_at = _normalize_datetime(second_order["createdAt"]) if second_order else None
+        last_order = sorted_orders[-1]
+        last_order_at = _normalize_datetime(last_order["createdAt"])
+        repeat_orders = sorted_orders[1:]
+        histories.append(
+            {
+                "customerId": entry["customerId"],
+                "customerName": entry["customerName"],
+                "customerEmail": entry["customerEmail"],
+                "orderCount": len(sorted_orders),
+                "orders": sorted_orders,
+                "firstOrderAt": first_order_at,
+                "secondOrderAt": second_order_at,
+                "lastOrderAt": last_order_at,
+                "netSalesTotal": _round_money(sum(_to_float(order.get("netSales")) for order in sorted_orders)),
+                "firstOrderNetSales": _round_money(_to_float(first_order.get("netSales"))),
+                "repeatOrderNetSales": _round_money(sum(_to_float(order.get("netSales")) for order in repeat_orders)),
+                "repeatOrderCount": len(repeat_orders),
+                "daysToSecondOrder": _days_between(first_order_at, second_order_at) if second_order_at else None,
+            }
+        )
+    return histories
+
+
+def _cohort_histories(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    as_of_date: str | None = None,
+) -> tuple[list[dict[str, Any]], datetime]:
+    cutoff = _normalize_datetime(as_of_date or date_to)
+    start = _normalize_datetime(date_from)
+    end = _normalize_datetime(date_to)
+    histories = _customer_histories(orders, as_of_date=cutoff.isoformat().replace("+00:00", "Z"))
+    cohort = [history for history in histories if start <= history["firstOrderAt"] <= end]
+    cohort.sort(key=lambda row: row["firstOrderAt"])
+    return cohort, cutoff
+
+
+def _percentile(values: list[int], percentile: float) -> float:
+    if not values:
+        return 0.0
+    sorted_values = sorted(values)
+    if len(sorted_values) == 1:
+        return float(sorted_values[0])
+    rank = max(1, int(-(-len(sorted_values) * percentile // 1)))
+    index = min(rank - 1, len(sorted_values) - 1)
+    return float(sorted_values[index])
 
 
 def _overview_metrics(orders: list[dict[str, Any]]) -> dict[str, Any]:
@@ -390,6 +491,138 @@ def discount_analysis(
             total_discount / discounted_order_count if discounted_order_count else 0.0
         ),
         "topDiscountCodes": rows,
+    }
+
+
+def retention_overview(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    as_of_date: str | None = None,
+) -> dict[str, Any]:
+    cohort, cutoff = _cohort_histories(orders, date_from=date_from, date_to=date_to, as_of_date=as_of_date)
+    repeaters = [history for history in cohort if history["secondOrderAt"] and history["secondOrderAt"] <= cutoff]
+    days = [history["daysToSecondOrder"] for history in repeaters if history["daysToSecondOrder"] is not None]
+    cohort_count = len(cohort)
+    repeat_count = len(repeaters)
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "asOfDate": cutoff.isoformat().replace("+00:00", "Z"),
+        "cohortCustomers": cohort_count,
+        "repeatCustomers": repeat_count,
+        "repeatCustomerRate": repeat_count / cohort_count if cohort_count else 0.0,
+        "firstOrderNetSales": _round_money(sum(history["firstOrderNetSales"] for history in cohort)),
+        "repeatOrderNetSales": _round_money(sum(history["repeatOrderNetSales"] for history in repeaters)),
+        "repeatOrders": sum(history["repeatOrderCount"] for history in repeaters),
+        "averageDaysToSecondOrder": _round_number(sum(days) / len(days)) if days else 0.0,
+        "medianDaysToSecondOrder": _round_number(float(median(days))) if days else 0.0,
+    }
+
+
+def repeat_purchase_windows(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    as_of_date: str | None = None,
+) -> dict[str, Any]:
+    cohort, cutoff = _cohort_histories(orders, date_from=date_from, date_to=date_to, as_of_date=as_of_date)
+    windows: list[dict[str, Any]] = []
+    for window_days in [30, 60, 90, 180]:
+        eligible = [
+            history for history in cohort if history["firstOrderAt"] + timedelta(days=window_days) <= cutoff
+        ]
+        repeated = [
+            history
+            for history in eligible
+            if history["daysToSecondOrder"] is not None and history["daysToSecondOrder"] <= window_days
+        ]
+        eligible_count = len(eligible)
+        windows.append(
+            {
+                "windowDays": window_days,
+                "eligibleCustomers": eligible_count,
+                "repeatedCustomers": len(repeated),
+                "repeatRate": len(repeated) / eligible_count if eligible_count else 0.0,
+                "ineligibleCustomers": len(cohort) - eligible_count,
+            }
+        )
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "asOfDate": cutoff.isoformat().replace("+00:00", "Z"),
+        "cohortCustomers": len(cohort),
+        "windows": windows,
+    }
+
+
+def time_to_second_order(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    as_of_date: str | None = None,
+) -> dict[str, Any]:
+    cohort, cutoff = _cohort_histories(orders, date_from=date_from, date_to=date_to, as_of_date=as_of_date)
+    repeated = [history for history in cohort if history["secondOrderAt"] and history["secondOrderAt"] <= cutoff]
+    values = sorted(history["daysToSecondOrder"] for history in repeated if history["daysToSecondOrder"] is not None)
+    distribution = {"0-30": 0, "31-60": 0, "61-90": 0, "91-180": 0, "181+": 0}
+    for value in values:
+        if value <= 30:
+            distribution["0-30"] += 1
+        elif value <= 60:
+            distribution["31-60"] += 1
+        elif value <= 90:
+            distribution["61-90"] += 1
+        elif value <= 180:
+            distribution["91-180"] += 1
+        else:
+            distribution["181+"] += 1
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "asOfDate": cutoff.isoformat().replace("+00:00", "Z"),
+        "cohortCustomers": len(cohort),
+        "customersWithSecondOrder": len(values),
+        "averageDays": _round_number(sum(values) / len(values)) if values else 0.0,
+        "medianDays": _round_number(float(median(values))) if values else 0.0,
+        "p75Days": _round_number(_percentile(values, 0.75)) if values else 0.0,
+        "distribution": distribution,
+    }
+
+
+def inactive_customer_summary(
+    orders: list[dict[str, Any]],
+    *,
+    as_of_date: str,
+) -> dict[str, Any]:
+    cutoff = _normalize_datetime(as_of_date)
+    histories = _customer_histories(orders, as_of_date=cutoff.isoformat().replace("+00:00", "Z"))
+    windows: list[dict[str, Any]] = []
+    for window_days in [30, 60, 90, 180]:
+        inactive = [
+            history for history in histories if _days_between(history["lastOrderAt"], cutoff) >= window_days
+        ]
+        inactive_count = len(inactive)
+        windows.append(
+            {
+                "windowDays": window_days,
+                "inactiveCustomers": inactive_count,
+                "inactiveRate": inactive_count / len(histories) if histories else 0.0,
+                "historicalNetSales": _round_money(sum(history["netSalesTotal"] for history in inactive)),
+                "averageDaysSinceLastOrder": _round_number(
+                    sum(_days_between(history["lastOrderAt"], cutoff) for history in inactive) / inactive_count
+                )
+                if inactive_count
+                else 0.0,
+            }
+        )
+    return {
+        "asOfDate": cutoff.isoformat().replace("+00:00", "Z"),
+        "trackedCustomers": len(histories),
+        "windows": windows,
     }
 
 

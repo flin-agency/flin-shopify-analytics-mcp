@@ -27,6 +27,12 @@ Der Server stellt diese Tools bereit:
 - `shopify_top_customers`
 - `shopify_discount_analysis`
 
+- Retention / CRM Health (`v3`, auf `main`):
+- `shopify_retention_overview`
+- `shopify_repeat_purchase_windows`
+- `shopify_time_to_second_order`
+- `shopify_inactive_customer_summary`
+
 Write-Operationen sind nicht erlaubt. GraphQL-Mutationen werden blockiert.
 
 ## Wichtig: Ohne Shopify-App funktioniert dieser MCP nicht
@@ -73,6 +79,7 @@ Optional:
 - `read_all_orders`
 
 `read_all_orders` ist sinnvoll, wenn du nicht nur die normalen Standard-Zeiträume von Shopify auslesen willst.
+Für `v3` Retention-KPIs ist `read_all_orders` faktisch empfohlen, weil Wiederkauf- und Inaktivitätskennzahlen sonst auf unvollständiger Historie basieren können.
 
 ### Legacy: Bestehende Custom App im Shopify Admin
 

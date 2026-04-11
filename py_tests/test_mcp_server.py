@@ -7,6 +7,74 @@ from flin_shopify_analytics_mcp.mcp_server import ShopifyAnalyticsMcpServer
 
 class FakeShopifyClient:
     def list_orders(self, **_kwargs):
+        created_after = _kwargs.get("createdAfter")
+        created_before = _kwargs.get("createdBefore")
+        if created_after is None and created_before is not None:
+            return [
+                {
+                    "id": "gid://shopify/Order/101",
+                    "name": "#1101",
+                    "createdAt": "2026-01-10T10:00:00Z",
+                    "totalAmount": 100,
+                    "subtotalAmount": 100,
+                    "discountAmount": 0,
+                    "refundedAmount": 0,
+                    "grossSales": 100,
+                    "netSales": 100,
+                    "unitsSold": 1,
+                    "currencyCode": "USD",
+                    "discountCodes": [],
+                    "customer": {
+                        "id": "gid://shopify/Customer/101",
+                        "name": "Alice",
+                        "email": "alice@example.com",
+                        "numberOfOrders": 2,
+                    },
+                    "items": [],
+                },
+                {
+                    "id": "gid://shopify/Order/102",
+                    "name": "#1102",
+                    "createdAt": "2026-01-25T10:00:00Z",
+                    "totalAmount": 90,
+                    "subtotalAmount": 90,
+                    "discountAmount": 0,
+                    "refundedAmount": 0,
+                    "grossSales": 90,
+                    "netSales": 90,
+                    "unitsSold": 1,
+                    "currencyCode": "USD",
+                    "discountCodes": [],
+                    "customer": {
+                        "id": "gid://shopify/Customer/101",
+                        "name": "Alice",
+                        "email": "alice@example.com",
+                        "numberOfOrders": 2,
+                    },
+                    "items": [],
+                },
+                {
+                    "id": "gid://shopify/Order/201",
+                    "name": "#1201",
+                    "createdAt": "2026-01-20T10:00:00Z",
+                    "totalAmount": 120,
+                    "subtotalAmount": 120,
+                    "discountAmount": 0,
+                    "refundedAmount": 0,
+                    "grossSales": 120,
+                    "netSales": 120,
+                    "unitsSold": 1,
+                    "currencyCode": "USD",
+                    "discountCodes": [],
+                    "customer": {
+                        "id": "gid://shopify/Customer/202",
+                        "name": "Bob",
+                        "email": "bob@example.com",
+                        "numberOfOrders": 1,
+                    },
+                    "items": [],
+                },
+            ]
         return [
             {
                 "id": "gid://shopify/Order/1",
@@ -100,6 +168,10 @@ class McpServerTests(unittest.TestCase):
                 "shopify_top_products",
                 "shopify_top_customers",
                 "shopify_discount_analysis",
+                "shopify_retention_overview",
+                "shopify_repeat_purchase_windows",
+                "shopify_time_to_second_order",
+                "shopify_inactive_customer_summary",
             ],
         )
 
@@ -144,6 +216,31 @@ class McpServerTests(unittest.TestCase):
         summary = response["result"]["structuredContent"]
         self.assertEqual(summary["currentPeriod"]["orders"], 1)
         self.assertEqual(summary["currentPeriod"]["netSales"], 90)
+
+    def test_retention_tool_returns_structured_output(self) -> None:
+        server = ShopifyAnalyticsMcpServer(client=FakeShopifyClient())
+        server.handle_message(
+            {"jsonrpc": "2.0", "id": 99, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}}
+        )
+        response = server.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "shopify_repeat_purchase_windows",
+                    "arguments": {
+                        "dateFrom": "2026-01-01T00:00:00Z",
+                        "dateTo": "2026-01-31T23:59:59Z",
+                        "asOfDate": "2026-04-30T23:59:59Z",
+                    },
+                },
+            }
+        )
+        assert response is not None
+        summary = response["result"]["structuredContent"]
+        self.assertEqual(summary["cohortCustomers"], 2)
+        self.assertEqual(summary["windows"][0]["windowDays"], 30)
 
 
 if __name__ == "__main__":
