@@ -27,6 +27,21 @@ class ShopifyClientOrderMappingTests(unittest.TestCase):
                                         "currentSubtotalLineItemsQuantity": 2,
                                         "discountCodes": ["SPRING10"],
                                         "sourceName": "web",
+                                        "customerJourneySummary": {
+                                            "ready": True,
+                                            "lastVisit": {
+                                                "landingPage": "https://shop.example.com/products/shirt?utm_source=instagram&utm_medium=paid-social&utm_campaign=spring",
+                                                "referrerUrl": "https://instagram.com/story/123",
+                                                "source": "instagram",
+                                                "utmParameters": {
+                                                    "source": "instagram",
+                                                    "medium": "paid-social",
+                                                    "campaign": "spring",
+                                                    "term": None,
+                                                    "content": None,
+                                                },
+                                            },
+                                        },
                                         "customer": {
                                             "id": "gid://shopify/Customer/42",
                                             "displayName": "Alice",
@@ -102,7 +117,14 @@ class ShopifyClientOrderMappingTests(unittest.TestCase):
         self.assertEqual(order["netSales"], 70.0)
         self.assertEqual(order["unitsSold"], 2)
         self.assertEqual(order["discountCodes"], ["SPRING10"])
-        self.assertEqual(order["sourceName"], "web")
+        self.assertEqual(order["sourceName"], "instagram")
+        self.assertTrue(order["attributionReady"])
+        self.assertEqual(
+            order["landingPage"],
+            "https://shop.example.com/products/shirt?utm_source=instagram&utm_medium=paid-social&utm_campaign=spring",
+        )
+        self.assertEqual(order["referringSite"], "https://instagram.com/story/123")
+        self.assertEqual(order["utm"]["campaign"], "spring")
         self.assertEqual(order["customer"]["numberOfOrders"], 3)
         self.assertEqual(order["items"][0]["variantId"], "gid://shopify/ProductVariant/5")
         self.assertEqual(order["items"][0]["unitPrice"], 50.0)

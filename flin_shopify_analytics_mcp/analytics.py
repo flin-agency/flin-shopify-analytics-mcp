@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from statistics import median
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 
 def _to_float(value: Any) -> float:
@@ -623,6 +624,263 @@ def inactive_customer_summary(
         "asOfDate": cutoff.isoformat().replace("+00:00", "Z"),
         "trackedCustomers": len(histories),
         "windows": windows,
+    }
+
+
+def _normalized_referring_site(order: dict[str, Any]) -> str:
+    referring_site = str(order.get("referringSite") or "").strip()
+    if not referring_site:
+        return ""
+    parsed = urlparse(referring_site)
+    host = parsed.netloc or parsed.path
+    return host.lower()
+
+
+def _normalize_source_name(order: dict[str, Any]) -> str:
+    source = str(order.get("sourceName") or "").strip().lower()
+    if source in {"direct", "none", "unknown"}:
+        source = ""
+    if source:
+        return source
+    referring_site = _normalized_referring_site(order)
+    if referring_site:
+        return referring_site
+    return "unattributed"
+
+
+def _parsed_landing_page(order: dict[str, Any]) -> tuple[str | None, dict[str, str]]:
+    landing_page = order.get("landingPage")
+    if not landing_page:
+        return None, {}
+    parsed = urlparse(str(landing_page))
+    clean_path = f"{parsed.scheme}://{parsed.netloc}{parsed.path}" if parsed.scheme and parsed.netloc else parsed.path
+    query = {key: values[0] for key, values in parse_qs(parsed.query).items() if values}
+    return clean_path or None, query
+
+
+def _attribution_view(order: dict[str, Any]) -> dict[str, Any]:
+    landing_page, params = _parsed_landing_page(order)
+    explicit_utm = order.get("utm") or {}
+    utm = {
+        "source": explicit_utm.get("source") or params.get("utm_source"),
+        "medium": explicit_utm.get("medium") or params.get("utm_medium"),
+        "campaign": explicit_utm.get("campaign") or params.get("utm_campaign"),
+        "term": explicit_utm.get("term") or params.get("utm_term"),
+        "content": explicit_utm.get("content") or params.get("utm_content"),
+    }
+    has_utm = any(value for value in utm.values())
+    source_name = _normalize_source_name(order)
+    if source_name == "unattributed" and utm.get("source"):
+        source_name = str(utm["source"]).strip().lower()
+    return {
+        "sourceName": source_name,
+        "landingPage": landing_page,
+        "referringSite": _normalized_referring_site(order) or None,
+        "utm": utm,
+        "hasSource": source_name != "unattributed",
+        "hasLandingPage": bool(landing_page),
+        "hasUtm": has_utm,
+        "hasAttribution": source_name != "unattributed" or has_utm or bool(landing_page),
+    }
+
+
+def attribution_quality_summary(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+) -> dict[str, Any]:
+    filtered = _filtered_orders(orders, date_from, date_to)
+    views = [_attribution_view(order) for order in filtered]
+    order_count = len(filtered)
+    with_source = sum(1 for view in views if view["hasSource"])
+    with_landing_page = sum(1 for view in views if view["hasLandingPage"])
+    with_utm = sum(1 for view in views if view["hasUtm"])
+    without_attribution = sum(1 for view in views if not view["hasAttribution"])
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "orderCount": order_count,
+        "ordersWithSource": with_source,
+        "ordersWithLandingPage": with_landing_page,
+        "ordersWithUtm": with_utm,
+        "ordersWithoutAttribution": without_attribution,
+        "sourceRate": with_source / order_count if order_count else 0.0,
+        "landingPageRate": with_landing_page / order_count if order_count else 0.0,
+        "utmRate": with_utm / order_count if order_count else 0.0,
+        "unattributedRate": without_attribution / order_count if order_count else 0.0,
+    }
+
+
+def sales_by_source(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    limit: int = 10,
+) -> dict[str, Any]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for order in _filtered_orders(orders, date_from, date_to):
+        source = _attribution_view(order)["sourceName"]
+        row = grouped.setdefault(
+            source,
+            {"source": source, "orders": 0, "unitsSold": 0, "grossSales": 0.0, "netSales": 0.0},
+        )
+        row["orders"] += 1
+        row["unitsSold"] += int(order.get("unitsSold") or 0)
+        row["grossSales"] += _to_float(order.get("grossSales"))
+        row["netSales"] += _to_float(order.get("netSales"))
+    rows = sorted(grouped.values(), key=lambda row: row["netSales"], reverse=True)
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "rows": [
+            {
+                **row,
+                "grossSales": _round_money(row["grossSales"]),
+                "netSales": _round_money(row["netSales"]),
+                "averageOrderValue": _round_money(row["netSales"] / row["orders"] if row["orders"] else 0.0),
+            }
+            for row in rows[: max(1, int(limit or 10))]
+        ],
+    }
+
+
+def _utm_group_key(order: dict[str, Any], group_by: str) -> str:
+    utm = _attribution_view(order)["utm"]
+    if group_by == "source":
+        return utm.get("source") or "<none>"
+    if group_by == "medium":
+        return utm.get("medium") or "<none>"
+    if group_by == "campaign":
+        return utm.get("campaign") or "<none>"
+    if group_by == "source_medium":
+        left = utm.get("source") or "<none>"
+        right = utm.get("medium") or "<none>"
+        return f"{left} / {right}"
+    if group_by == "source_medium_campaign":
+        left = utm.get("source") or "<none>"
+        middle = utm.get("medium") or "<none>"
+        right = utm.get("campaign") or "<none>"
+        return f"{left} / {middle} / {right}"
+    raise ValueError("groupBy must be one of: source, medium, campaign, source_medium, source_medium_campaign")
+
+
+def sales_by_utm(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    group_by: str,
+    limit: int = 10,
+) -> dict[str, Any]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for order in _filtered_orders(orders, date_from, date_to):
+        key = _utm_group_key(order, group_by)
+        row = grouped.setdefault(key, {"group": key, "orders": 0, "unitsSold": 0, "grossSales": 0.0, "netSales": 0.0})
+        row["orders"] += 1
+        row["unitsSold"] += int(order.get("unitsSold") or 0)
+        row["grossSales"] += _to_float(order.get("grossSales"))
+        row["netSales"] += _to_float(order.get("netSales"))
+    rows = sorted(grouped.values(), key=lambda row: row["netSales"], reverse=True)
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "groupBy": group_by,
+        "rows": [
+            {
+                **row,
+                "grossSales": _round_money(row["grossSales"]),
+                "netSales": _round_money(row["netSales"]),
+                "averageOrderValue": _round_money(row["netSales"] / row["orders"] if row["orders"] else 0.0),
+            }
+            for row in rows[: max(1, int(limit or 10))]
+        ],
+    }
+
+
+def new_customers_by_attribution(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    group_by: str,
+    limit: int = 10,
+) -> dict[str, Any]:
+    cohort, _ = _cohort_histories(orders, date_from=date_from, date_to=date_to, as_of_date=date_to)
+    grouped: dict[str, dict[str, Any]] = {}
+    for history in cohort:
+        first_order = history["orders"][0]
+        view = _attribution_view(first_order)
+        if group_by == "source":
+            key = view["sourceName"]
+        elif group_by == "campaign":
+            key = view["utm"].get("campaign") or "<none>"
+        elif group_by == "landingPage":
+            key = view["landingPage"] or "<none>"
+        else:
+            raise ValueError("groupBy must be one of: source, campaign, landingPage")
+        row = grouped.setdefault(key, {"group": key, "newCustomers": 0, "firstOrderNetSales": 0.0, "firstOrders": 0})
+        row["newCustomers"] += 1
+        row["firstOrders"] += 1
+        row["firstOrderNetSales"] += _to_float(first_order.get("netSales"))
+    rows = sorted(grouped.values(), key=lambda row: row["firstOrderNetSales"], reverse=True)
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "groupBy": group_by,
+        "rows": [
+            {
+                **row,
+                "firstOrderNetSales": _round_money(row["firstOrderNetSales"]),
+            }
+            for row in rows[: max(1, int(limit or 10))]
+        ],
+    }
+
+
+def landing_page_analysis(
+    orders: list[dict[str, Any]],
+    *,
+    date_from: str,
+    date_to: str,
+    sort_by: str = "netSales",
+    limit: int = 10,
+) -> dict[str, Any]:
+    cohort, _ = _cohort_histories(orders, date_from=date_from, date_to=date_to, as_of_date=date_to)
+    new_customer_first_order_ids = {
+        str(history["orders"][0].get("id"))
+        for history in cohort
+        if history.get("orders") and history["orders"][0].get("id")
+    }
+    grouped: dict[str, dict[str, Any]] = {}
+    for order in _filtered_orders(orders, date_from, date_to):
+        landing_page = _attribution_view(order)["landingPage"] or "<none>"
+        row = grouped.setdefault(
+            landing_page,
+            {"landingPage": landing_page, "orders": 0, "newCustomers": 0, "grossSales": 0.0, "netSales": 0.0},
+        )
+        row["orders"] += 1
+        row["grossSales"] += _to_float(order.get("grossSales"))
+        row["netSales"] += _to_float(order.get("netSales"))
+        if str(order.get("id")) in new_customer_first_order_ids:
+            row["newCustomers"] += 1
+    if sort_by not in {"netSales", "orders", "newCustomers"}:
+        raise ValueError("sortBy must be one of: netSales, orders, newCustomers")
+    rows = sorted(grouped.values(), key=lambda row: row[sort_by], reverse=True)
+    return {
+        "dateFrom": date_from,
+        "dateTo": date_to,
+        "sortBy": sort_by,
+        "rows": [
+            {
+                **row,
+                "grossSales": _round_money(row["grossSales"]),
+                "netSales": _round_money(row["netSales"]),
+                "averageOrderValue": _round_money(row["netSales"] / row["orders"] if row["orders"] else 0.0),
+            }
+            for row in rows[: max(1, int(limit or 10))]
+        ],
     }
 
 

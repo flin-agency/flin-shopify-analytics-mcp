@@ -48,6 +48,21 @@ query ListOrders($first: Int!, $after: String, $query: String) {
         currentSubtotalLineItemsQuantity
         discountCodes
         sourceName
+        customerJourneySummary {
+          ready
+          lastVisit {
+            landingPage
+            referrerUrl
+            source
+            utmParameters {
+              source
+              medium
+              campaign
+              term
+              content
+            }
+          }
+        }
         totalPriceSet {
           shopMoney {
             amount
@@ -214,6 +229,21 @@ query CustomerOrders($id: ID!, $first: Int!, $after: String) {
           currentSubtotalLineItemsQuantity
           discountCodes
           sourceName
+          customerJourneySummary {
+            ready
+            lastVisit {
+              landingPage
+              referrerUrl
+              source
+              utmParameters {
+                source
+                medium
+                campaign
+                term
+                content
+              }
+            }
+          }
           totalPriceSet {
             shopMoney {
               amount
@@ -362,6 +392,9 @@ def _map_order_node(node: dict[str, Any]) -> dict[str, Any]:
     refunded_set = (node.get("totalRefundedSet") or {}).get("shopMoney") or {}
     customer = node.get("customer")
     line_items = ((node.get("lineItems") or {}).get("edges") or [])
+    customer_journey_summary = node.get("customerJourneySummary") or {}
+    last_visit = customer_journey_summary.get("lastVisit") or {}
+    utm = last_visit.get("utmParameters") or {}
     subtotal_amount = _to_float(subtotal_set.get("amount"))
     discount_amount = _to_float(discounts_set.get("amount"))
     refunded_amount = _to_float(refunded_set.get("amount"))
@@ -379,7 +412,17 @@ def _map_order_node(node: dict[str, Any]) -> dict[str, Any]:
         "unitsSold": int(node.get("currentSubtotalLineItemsQuantity") or 0),
         "currencyCode": total_set.get("currencyCode"),
         "discountCodes": node.get("discountCodes") or [],
-        "sourceName": node.get("sourceName"),
+        "sourceName": last_visit.get("source") or node.get("sourceName"),
+        "landingPage": last_visit.get("landingPage"),
+        "referringSite": last_visit.get("referrerUrl"),
+        "attributionReady": bool(customer_journey_summary.get("ready")),
+        "utm": {
+            "source": utm.get("source"),
+            "medium": utm.get("medium"),
+            "campaign": utm.get("campaign"),
+            "term": utm.get("term"),
+            "content": utm.get("content"),
+        },
         "customer": {
             "id": customer.get("id"),
             "name": customer.get("displayName"),

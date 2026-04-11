@@ -33,6 +33,13 @@ Der Server stellt diese Tools bereit:
 - `shopify_time_to_second_order`
 - `shopify_inactive_customer_summary`
 
+- Attribution (`v4`, auf `main`):
+- `shopify_attribution_quality_summary`
+- `shopify_sales_by_source`
+- `shopify_sales_by_utm`
+- `shopify_new_customers_by_attribution`
+- `shopify_landing_page_analysis`
+
 Write-Operationen sind nicht erlaubt. GraphQL-Mutationen werden blockiert.
 
 ## Wichtig: Ohne Shopify-App funktioniert dieser MCP nicht
@@ -80,6 +87,7 @@ Optional:
 
 `read_all_orders` ist sinnvoll, wenn du nicht nur die normalen Standard-Zeiträume von Shopify auslesen willst.
 Für `v3` Retention-KPIs ist `read_all_orders` faktisch empfohlen, weil Wiederkauf- und Inaktivitätskennzahlen sonst auf unvollständiger Historie basieren können.
+Für `v4` Neukunden-Attribution ist `read_all_orders` ebenfalls empfohlen, weil der MCP dafür die erste bekannte Bestellung eines Kunden bis `dateTo` korrekt erkennen muss.
 
 ### Legacy: Bestehende Custom App im Shopify Admin
 
@@ -215,6 +223,17 @@ SSL_CERT_FILE="/path/to/ca-bundle.pem"
 ```
 
 ## Troubleshooting
+
+### Attribution-Daten sind leer oder unvollständig
+
+Die `v4` Attribution-Tools basieren auf Shopify-Order-Attribution und Customer Journey Daten.
+
+Wichtig:
+
+1. Shopify-Attribution ist nicht für jede Order vollständig vorhanden.
+2. `shopify_attribution_quality_summary` zeigt dir zuerst, wie viele Orders überhaupt Source-, Landing-Page- oder UTM-Daten haben.
+3. `shopify_sales_by_source` und `shopify_sales_by_utm` reporten fehlende Daten bewusst als `unattributed` oder `<none>`, statt Werte zu raten.
+4. `shopify_new_customers_by_attribution` und `shopify_landing_page_analysis` mit `newCustomers` sind am belastbarsten, wenn die App `read_all_orders` hat.
 
 ### `SSL: CERTIFICATE_VERIFY_FAILED`
 

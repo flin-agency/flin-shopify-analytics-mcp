@@ -9,6 +9,109 @@ class FakeShopifyClient:
     def list_orders(self, **_kwargs):
         created_after = _kwargs.get("createdAfter")
         created_before = _kwargs.get("createdBefore")
+        if _kwargs.get("query") == "attribution-test":
+            return [
+                {
+                    "id": "gid://shopify/Order/601",
+                    "name": "#1601",
+                    "createdAt": "2026-04-01T10:00:00Z",
+                    "totalAmount": 110,
+                    "subtotalAmount": 100,
+                    "discountAmount": 10,
+                    "refundedAmount": 0,
+                    "grossSales": 110,
+                    "netSales": 100,
+                    "unitsSold": 2,
+                    "currencyCode": "USD",
+                    "discountCodes": ["SPRING10"],
+                    "sourceName": "instagram",
+                    "landingPage": "https://shop.example.com/products/shirt?utm_source=instagram&utm_medium=paid-social&utm_campaign=spring",
+                    "referringSite": "https://instagram.com/story/123",
+                    "utm": {"source": "instagram", "medium": "paid-social", "campaign": "spring"},
+                    "customer": {
+                        "id": "gid://shopify/Customer/601",
+                        "name": "Nina",
+                        "email": "nina@example.com",
+                        "numberOfOrders": 1,
+                    },
+                    "items": [],
+                },
+                {
+                    "id": "gid://shopify/Order/602",
+                    "name": "#1602",
+                    "createdAt": "2026-04-10T10:00:00Z",
+                    "totalAmount": 90,
+                    "subtotalAmount": 90,
+                    "discountAmount": 0,
+                    "refundedAmount": 0,
+                    "grossSales": 90,
+                    "netSales": 90,
+                    "unitsSold": 1,
+                    "currencyCode": "USD",
+                    "discountCodes": [],
+                    "sourceName": "instagram",
+                    "landingPage": "https://shop.example.com/products/shirt?utm_source=instagram&utm_medium=paid-social&utm_campaign=spring",
+                    "referringSite": "https://instagram.com/story/123",
+                    "utm": {"source": "instagram", "medium": "paid-social", "campaign": "spring"},
+                    "customer": {
+                        "id": "gid://shopify/Customer/601",
+                        "name": "Nina",
+                        "email": "nina@example.com",
+                        "numberOfOrders": 2,
+                    },
+                    "items": [],
+                },
+                {
+                    "id": "gid://shopify/Order/603",
+                    "name": "#1603",
+                    "createdAt": "2026-04-12T10:00:00Z",
+                    "totalAmount": 150,
+                    "subtotalAmount": 150,
+                    "discountAmount": 0,
+                    "refundedAmount": 0,
+                    "grossSales": 150,
+                    "netSales": 150,
+                    "unitsSold": 3,
+                    "currencyCode": "USD",
+                    "discountCodes": [],
+                    "sourceName": "google",
+                    "landingPage": "https://shop.example.com/collections/sale?utm_source=google&utm_medium=cpc&utm_campaign=brand",
+                    "referringSite": "https://google.com/search?q=shop",
+                    "utm": {"source": "google", "medium": "cpc", "campaign": "brand"},
+                    "customer": {
+                        "id": "gid://shopify/Customer/602",
+                        "name": "Omar",
+                        "email": "omar@example.com",
+                        "numberOfOrders": 1,
+                    },
+                    "items": [],
+                },
+                {
+                    "id": "gid://shopify/Order/604",
+                    "name": "#1604",
+                    "createdAt": "2026-04-15T10:00:00Z",
+                    "totalAmount": 80,
+                    "subtotalAmount": 80,
+                    "discountAmount": 0,
+                    "refundedAmount": 0,
+                    "grossSales": 80,
+                    "netSales": 80,
+                    "unitsSold": 1,
+                    "currencyCode": "USD",
+                    "discountCodes": [],
+                    "sourceName": "direct",
+                    "landingPage": None,
+                    "referringSite": None,
+                    "utm": {},
+                    "customer": {
+                        "id": "gid://shopify/Customer/603",
+                        "name": "Paul",
+                        "email": "paul@example.com",
+                        "numberOfOrders": 1,
+                    },
+                    "items": [],
+                },
+            ]
         if created_after is None and created_before is not None:
             return [
                 {
@@ -168,6 +271,11 @@ class McpServerTests(unittest.TestCase):
                 "shopify_top_products",
                 "shopify_top_customers",
                 "shopify_discount_analysis",
+                "shopify_attribution_quality_summary",
+                "shopify_sales_by_source",
+                "shopify_sales_by_utm",
+                "shopify_new_customers_by_attribution",
+                "shopify_landing_page_analysis",
                 "shopify_retention_overview",
                 "shopify_repeat_purchase_windows",
                 "shopify_time_to_second_order",
@@ -216,6 +324,32 @@ class McpServerTests(unittest.TestCase):
         summary = response["result"]["structuredContent"]
         self.assertEqual(summary["currentPeriod"]["orders"], 1)
         self.assertEqual(summary["currentPeriod"]["netSales"], 90)
+
+    def test_attribution_tool_returns_structured_output(self) -> None:
+        server = ShopifyAnalyticsMcpServer(client=FakeShopifyClient())
+        server.handle_message(
+            {"jsonrpc": "2.0", "id": 99, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}}
+        )
+        response = server.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "shopify_sales_by_utm",
+                    "arguments": {
+                        "dateFrom": "2026-04-01T00:00:00Z",
+                        "dateTo": "2026-04-30T23:59:59Z",
+                        "groupBy": "campaign",
+                        "query": "attribution-test",
+                    },
+                },
+            }
+        )
+        assert response is not None
+        summary = response["result"]["structuredContent"]
+        self.assertEqual(summary["rows"][0]["group"], "spring")
+        self.assertEqual(summary["rows"][0]["orders"], 2)
 
     def test_retention_tool_returns_structured_output(self) -> None:
         server = ShopifyAnalyticsMcpServer(client=FakeShopifyClient())

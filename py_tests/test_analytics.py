@@ -4,11 +4,16 @@ import unittest
 
 from flin_shopify_analytics_mcp.analytics import (
     aggregate_by_customer_product,
+    attribution_quality_summary,
     discount_analysis,
     inactive_customer_summary,
+    landing_page_analysis,
+    new_customers_by_attribution,
     repeat_purchase_windows,
     retention_overview,
     sales_overview,
+    sales_by_source,
+    sales_by_utm,
     sales_timeseries,
     time_to_second_order,
     top_customers,
@@ -256,6 +261,89 @@ RETENTION_ORDERS = [
     },
 ]
 
+ATTRIBUTION_ORDERS = [
+    {
+        "id": "gid://shopify/Order/601",
+        "createdAt": "2026-04-01T10:00:00Z",
+        "netSales": 100.0,
+        "grossSales": 110.0,
+        "discountAmount": 10.0,
+        "refundedAmount": 0.0,
+        "unitsSold": 2,
+        "currencyCode": "USD",
+        "sourceName": "instagram",
+        "landingPage": "https://shop.example.com/products/shirt?utm_source=instagram&utm_medium=paid-social&utm_campaign=spring&utm_content=ad1",
+        "referringSite": "instagram.com",
+        "customer": {
+            "id": "gid://shopify/Customer/601",
+            "name": "Nina",
+            "email": "nina@example.com",
+            "numberOfOrders": 1,
+        },
+        "items": [],
+    },
+    {
+        "id": "gid://shopify/Order/602",
+        "createdAt": "2026-04-02T10:00:00Z",
+        "netSales": 150.0,
+        "grossSales": 150.0,
+        "discountAmount": 0.0,
+        "refundedAmount": 0.0,
+        "unitsSold": 3,
+        "currencyCode": "USD",
+        "sourceName": "google",
+        "landingPage": "https://shop.example.com/collections/sale?utm_source=google&utm_medium=cpc&utm_campaign=brand",
+        "referringSite": "google.com",
+        "customer": {
+            "id": "gid://shopify/Customer/602",
+            "name": "Omar",
+            "email": "omar@example.com",
+            "numberOfOrders": 1,
+        },
+        "items": [],
+    },
+    {
+        "id": "gid://shopify/Order/603",
+        "createdAt": "2026-04-05T10:00:00Z",
+        "netSales": 80.0,
+        "grossSales": 80.0,
+        "discountAmount": 0.0,
+        "refundedAmount": 0.0,
+        "unitsSold": 1,
+        "currencyCode": "USD",
+        "sourceName": "direct",
+        "landingPage": None,
+        "referringSite": None,
+        "customer": {
+            "id": "gid://shopify/Customer/603",
+            "name": "Paul",
+            "email": "paul@example.com",
+            "numberOfOrders": 1,
+        },
+        "items": [],
+    },
+    {
+        "id": "gid://shopify/Order/604",
+        "createdAt": "2026-04-10T10:00:00Z",
+        "netSales": 90.0,
+        "grossSales": 90.0,
+        "discountAmount": 0.0,
+        "refundedAmount": 0.0,
+        "unitsSold": 1,
+        "currencyCode": "USD",
+        "sourceName": "instagram",
+        "landingPage": "https://shop.example.com/products/shirt?utm_source=instagram&utm_medium=paid-social&utm_campaign=spring&utm_content=ad2",
+        "referringSite": "instagram.com",
+        "customer": {
+            "id": "gid://shopify/Customer/601",
+            "name": "Nina",
+            "email": "nina@example.com",
+            "numberOfOrders": 2,
+        },
+        "items": [],
+    },
+]
+
 
 class AnalyticsTests(unittest.TestCase):
     def test_aggregate_groups_quantities_and_spend(self) -> None:
@@ -396,6 +484,66 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(windows[90]["inactiveCustomers"], 2)
         self.assertAlmostEqual(windows[90]["inactiveRate"], 0.4, places=4)
         self.assertEqual(windows[90]["historicalNetSales"], 280.0)
+
+    def test_attribution_quality_summary_counts_coverage(self) -> None:
+        result = attribution_quality_summary(
+            ATTRIBUTION_ORDERS,
+            date_from="2026-04-01T00:00:00Z",
+            date_to="2026-04-30T23:59:59Z",
+        )
+        self.assertEqual(result["orderCount"], 4)
+        self.assertEqual(result["ordersWithSource"], 3)
+        self.assertEqual(result["ordersWithLandingPage"], 3)
+        self.assertEqual(result["ordersWithUtm"], 3)
+        self.assertEqual(result["ordersWithoutAttribution"], 1)
+
+    def test_sales_by_source_groups_sales(self) -> None:
+        result = sales_by_source(
+            ATTRIBUTION_ORDERS,
+            date_from="2026-04-01T00:00:00Z",
+            date_to="2026-04-30T23:59:59Z",
+            limit=10,
+        )
+        self.assertEqual(result["rows"][0]["source"], "instagram")
+        self.assertEqual(result["rows"][0]["orders"], 2)
+        self.assertEqual(result["rows"][0]["netSales"], 190.0)
+
+    def test_sales_by_utm_groups_by_campaign(self) -> None:
+        result = sales_by_utm(
+            ATTRIBUTION_ORDERS,
+            date_from="2026-04-01T00:00:00Z",
+            date_to="2026-04-30T23:59:59Z",
+            group_by="campaign",
+            limit=10,
+        )
+        self.assertEqual(result["rows"][0]["group"], "spring")
+        self.assertEqual(result["rows"][0]["orders"], 2)
+        self.assertEqual(result["rows"][0]["netSales"], 190.0)
+
+    def test_new_customers_by_attribution_counts_first_orders(self) -> None:
+        result = new_customers_by_attribution(
+            ATTRIBUTION_ORDERS,
+            date_from="2026-04-01T00:00:00Z",
+            date_to="2026-04-30T23:59:59Z",
+            group_by="source",
+            limit=10,
+        )
+        rows = {row["group"]: row for row in result["rows"]}
+        self.assertEqual(rows["instagram"]["newCustomers"], 1)
+        self.assertEqual(rows["google"]["newCustomers"], 1)
+        self.assertEqual(rows["unattributed"]["newCustomers"], 1)
+
+    def test_landing_page_analysis_groups_pages(self) -> None:
+        result = landing_page_analysis(
+            ATTRIBUTION_ORDERS,
+            date_from="2026-04-01T00:00:00Z",
+            date_to="2026-04-30T23:59:59Z",
+            sort_by="netSales",
+            limit=10,
+        )
+        self.assertEqual(result["rows"][0]["landingPage"], "https://shop.example.com/products/shirt")
+        self.assertEqual(result["rows"][0]["orders"], 2)
+        self.assertEqual(result["rows"][0]["newCustomers"], 1)
 
 
 if __name__ == "__main__":

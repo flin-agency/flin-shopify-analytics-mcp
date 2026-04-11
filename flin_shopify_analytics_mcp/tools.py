@@ -7,11 +7,16 @@ from typing import Any
 
 from .analytics import (
     aggregate_by_customer_product,
+    attribution_quality_summary,
     discount_analysis,
     inactive_customer_summary,
+    landing_page_analysis,
+    new_customers_by_attribution,
     previous_period_window,
     repeat_purchase_windows,
     retention_overview,
+    sales_by_source,
+    sales_by_utm,
     sales_overview,
     sales_timeseries,
     time_to_second_order,
@@ -169,6 +174,92 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "shopify_attribution_quality_summary",
+        "description": "Coverage summary for source, landing page, and UTM attribution data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1000},
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "shopify_sales_by_source",
+        "description": "Sales grouped by normalized source or referrer.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 10},
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "shopify_sales_by_utm",
+        "description": "Sales grouped by UTM dimension such as source, medium, or campaign.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 10},
+                "groupBy": {
+                    "type": "string",
+                    "enum": ["source", "medium", "campaign", "source_medium", "source_medium_campaign"],
+                    "default": "campaign",
+                },
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "shopify_new_customers_by_attribution",
+        "description": "New customers grouped by source, UTM campaign, or landing page.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 10},
+                "groupBy": {
+                    "type": "string",
+                    "enum": ["source", "campaign", "landingPage"],
+                    "default": "source",
+                },
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "shopify_landing_page_analysis",
+        "description": "Landing-page performance by sales, orders, and accurately counted new customers.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dateFrom": {"type": "string", "format": "date-time"},
+                "dateTo": {"type": "string", "format": "date-time"},
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 10},
+                "sortBy": {"type": "string", "enum": ["netSales", "orders", "newCustomers"], "default": "netSales"},
+            },
+            "required": ["dateFrom", "dateTo"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "shopify_retention_overview",
         "description": "Retention KPIs for customers whose first order happened in the selected cohort window.",
         "inputSchema": {
@@ -263,6 +354,16 @@ def call_tool(client: Any, name: str, args: dict[str, Any] | None = None) -> dic
             createdBefore=as_of_date,
         )
 
+    def _load_attribution_orders() -> list[dict[str, Any]]:
+        date_to = str(args.get("dateTo") or "")
+        if not date_to:
+            raise ValueError("dateTo is required.")
+        return client.list_orders(
+            limit=int(args.get("limit") or 1000),
+            query=args.get("query"),
+            createdBefore=date_to,
+        )
+
     if name == "shopify_list_orders":
         orders = client.list_orders(**args)
         return _as_tool_result({"count": len(orders), "orders": orders})
@@ -325,6 +426,49 @@ def call_tool(client: Any, name: str, args: dict[str, Any] | None = None) -> dic
             orders,
             date_from=args["dateFrom"],
             date_to=args["dateTo"],
+            limit=int(args.get("limit") or 10),
+        )
+        return _as_tool_result(result)
+    if name == "shopify_attribution_quality_summary":
+        orders = _load_attribution_orders()
+        result = attribution_quality_summary(orders, date_from=args["dateFrom"], date_to=args["dateTo"])
+        return _as_tool_result(result)
+    if name == "shopify_sales_by_source":
+        orders = _load_attribution_orders()
+        result = sales_by_source(
+            orders,
+            date_from=args["dateFrom"],
+            date_to=args["dateTo"],
+            limit=int(args.get("limit") or 10),
+        )
+        return _as_tool_result(result)
+    if name == "shopify_sales_by_utm":
+        orders = _load_attribution_orders()
+        result = sales_by_utm(
+            orders,
+            date_from=args["dateFrom"],
+            date_to=args["dateTo"],
+            group_by=str(args.get("groupBy") or "campaign"),
+            limit=int(args.get("limit") or 10),
+        )
+        return _as_tool_result(result)
+    if name == "shopify_new_customers_by_attribution":
+        orders = _load_attribution_orders()
+        result = new_customers_by_attribution(
+            orders,
+            date_from=args["dateFrom"],
+            date_to=args["dateTo"],
+            group_by=str(args.get("groupBy") or "source"),
+            limit=int(args.get("limit") or 10),
+        )
+        return _as_tool_result(result)
+    if name == "shopify_landing_page_analysis":
+        orders = _load_attribution_orders()
+        result = landing_page_analysis(
+            orders,
+            date_from=args["dateFrom"],
+            date_to=args["dateTo"],
+            sort_by=str(args.get("sortBy") or "netSales"),
             limit=int(args.get("limit") or 10),
         )
         return _as_tool_result(result)
