@@ -27,6 +27,27 @@ query ListOrders($first: Int!, $after: String, $query: String) {
         id
         name
         createdAt
+        subtotalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        totalDiscountsSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        totalRefundedSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        currentSubtotalLineItemsQuantity
+        discountCodes
+        sourceName
         totalPriceSet {
           shopMoney {
             amount
@@ -37,6 +58,7 @@ query ListOrders($first: Int!, $after: String, $query: String) {
           id
           displayName
           email
+          numberOfOrders
         }
         lineItems(first: 100) {
           edges {
@@ -44,10 +66,41 @@ query ListOrders($first: Int!, $after: String, $query: String) {
               title
               sku
               quantity
+              currentQuantity
               variantTitle
+              originalUnitPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              discountedUnitPriceAfterAllDiscountsSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              originalTotalSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              totalDiscountSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              variant {
+                id
+                title
+                sku
+              }
               product {
                 id
                 title
+                vendor
               }
             }
           }
@@ -128,6 +181,7 @@ query CustomerOrders($id: ID!, $first: Int!, $after: String) {
     id
     displayName
     email
+    numberOfOrders
     amountSpent {
       amount
       currencyCode
@@ -139,6 +193,27 @@ query CustomerOrders($id: ID!, $first: Int!, $after: String) {
           id
           name
           createdAt
+          subtotalPriceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
+          totalDiscountsSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
+          totalRefundedSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
+          currentSubtotalLineItemsQuantity
+          discountCodes
+          sourceName
           totalPriceSet {
             shopMoney {
               amount
@@ -151,10 +226,41 @@ query CustomerOrders($id: ID!, $first: Int!, $after: String) {
                 title
                 sku
                 quantity
+                currentQuantity
                 variantTitle
+                originalUnitPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                discountedUnitPriceAfterAllDiscountsSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                originalTotalSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                totalDiscountSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                variant {
+                  id
+                  title
+                  sku
+                }
                 product {
                   id
                   title
+                  vendor
                 }
               }
             }
@@ -223,29 +329,62 @@ def _build_order_search_query(
 
 def _map_line_item(node: dict[str, Any]) -> dict[str, Any]:
     product = node.get("product") or {}
+    variant = node.get("variant") or {}
+    original_unit_price = (node.get("originalUnitPriceSet") or {}).get("shopMoney") or {}
+    discounted_unit_price = (node.get("discountedUnitPriceAfterAllDiscountsSet") or {}).get("shopMoney") or {}
+    original_total = (node.get("originalTotalSet") or {}).get("shopMoney") or {}
+    total_discount = (node.get("totalDiscountSet") or {}).get("shopMoney") or {}
+    quantity = int(node.get("quantity") or 0)
+    current_quantity = int(node.get("currentQuantity") or quantity)
+    unit_price = _to_float(original_unit_price.get("amount"))
+    discounted_price = _to_float(discounted_unit_price.get("amount"))
     return {
         "productId": product.get("id"),
+        "variantId": variant.get("id"),
         "title": product.get("title") or node.get("title"),
         "sku": node.get("sku"),
-        "variantTitle": node.get("variantTitle"),
-        "quantity": int(node.get("quantity") or 0),
+        "variantTitle": variant.get("title") or node.get("variantTitle"),
+        "vendor": product.get("vendor"),
+        "quantity": quantity,
+        "currentQuantity": current_quantity,
+        "unitPrice": unit_price,
+        "discountedUnitPrice": discounted_price,
+        "grossSales": _to_float(original_total.get("amount")),
+        "discountAmount": _to_float(total_discount.get("amount")),
+        "netSales": round(discounted_price * current_quantity, 2),
     }
 
 
 def _map_order_node(node: dict[str, Any]) -> dict[str, Any]:
     total_set = (node.get("totalPriceSet") or {}).get("shopMoney") or {}
+    subtotal_set = (node.get("subtotalPriceSet") or {}).get("shopMoney") or {}
+    discounts_set = (node.get("totalDiscountsSet") or {}).get("shopMoney") or {}
+    refunded_set = (node.get("totalRefundedSet") or {}).get("shopMoney") or {}
     customer = node.get("customer")
     line_items = ((node.get("lineItems") or {}).get("edges") or [])
+    subtotal_amount = _to_float(subtotal_set.get("amount"))
+    discount_amount = _to_float(discounts_set.get("amount"))
+    refunded_amount = _to_float(refunded_set.get("amount"))
+    gross_sales = subtotal_amount + discount_amount
     return {
         "id": node.get("id"),
         "name": node.get("name"),
         "createdAt": node.get("createdAt"),
         "totalAmount": _to_float(total_set.get("amount")),
+        "subtotalAmount": subtotal_amount,
+        "discountAmount": discount_amount,
+        "refundedAmount": refunded_amount,
+        "grossSales": round(gross_sales, 2),
+        "netSales": round(subtotal_amount - refunded_amount, 2),
+        "unitsSold": int(node.get("currentSubtotalLineItemsQuantity") or 0),
         "currencyCode": total_set.get("currencyCode"),
+        "discountCodes": node.get("discountCodes") or [],
+        "sourceName": node.get("sourceName"),
         "customer": {
             "id": customer.get("id"),
             "name": customer.get("displayName"),
             "email": customer.get("email"),
+            "numberOfOrders": int(customer.get("numberOfOrders") or 0),
         }
         if customer
         else None,
@@ -563,6 +702,7 @@ class ShopifyClient:
                 "id": customer_data.get("id"),
                 "name": customer_data.get("displayName"),
                 "email": customer_data.get("email"),
+                "numberOfOrders": int(customer_data.get("numberOfOrders") or 0),
                 "amountSpent": _to_float(amount_spent.get("amount")),
                 "currencyCode": amount_spent.get("currencyCode"),
             }
@@ -575,6 +715,7 @@ class ShopifyClient:
                     "id": customer.get("id"),
                     "name": customer.get("name"),
                     "email": customer.get("email"),
+                    "numberOfOrders": customer.get("numberOfOrders"),
                 }
                 orders.append(order)
 

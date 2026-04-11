@@ -13,18 +13,32 @@ class FakeShopifyClient:
                 "name": "#1001",
                 "createdAt": "2026-04-10T10:00:00Z",
                 "totalAmount": 100,
+                "subtotalAmount": 90,
+                "discountAmount": 10,
+                "refundedAmount": 0,
+                "grossSales": 100,
+                "netSales": 90,
+                "unitsSold": 2,
                 "currencyCode": "USD",
+                "discountCodes": ["SPRING10"],
                 "customer": {
                     "id": "gid://shopify/Customer/42",
                     "name": "Alice",
                     "email": "alice@example.com",
+                    "numberOfOrders": 1,
                 },
                 "items": [
                     {
                         "productId": "gid://shopify/Product/5",
+                        "variantId": "gid://shopify/ProductVariant/50",
                         "title": "Shirt",
+                        "variantTitle": "Blue / M",
                         "sku": "SHIRT-1",
                         "quantity": 2,
+                        "currentQuantity": 2,
+                        "grossSales": 100,
+                        "netSales": 90,
+                        "discountAmount": 10,
                     }
                 ],
             }
@@ -81,6 +95,11 @@ class McpServerTests(unittest.TestCase):
                 "shopify_list_products",
                 "shopify_customer_purchase_summary",
                 "shopify_sales_by_customer_product",
+                "shopify_sales_overview",
+                "shopify_sales_timeseries",
+                "shopify_top_products",
+                "shopify_top_customers",
+                "shopify_discount_analysis",
             ],
         )
 
@@ -101,6 +120,30 @@ class McpServerTests(unittest.TestCase):
         summary = response["result"]["structuredContent"]
         self.assertEqual(summary["orderCount"], 1)
         self.assertEqual(summary["customers"][0]["products"][0]["quantity"], 2)
+
+    def test_reporting_tool_returns_structured_output(self) -> None:
+        server = ShopifyAnalyticsMcpServer(client=FakeShopifyClient())
+        server.handle_message(
+            {"jsonrpc": "2.0", "id": 99, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}}
+        )
+        response = server.handle_message(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "shopify_sales_overview",
+                    "arguments": {
+                        "dateFrom": "2026-04-01T00:00:00Z",
+                        "dateTo": "2026-04-30T23:59:59Z",
+                    },
+                },
+            }
+        )
+        assert response is not None
+        summary = response["result"]["structuredContent"]
+        self.assertEqual(summary["currentPeriod"]["orders"], 1)
+        self.assertEqual(summary["currentPeriod"]["netSales"], 90)
 
 
 if __name__ == "__main__":

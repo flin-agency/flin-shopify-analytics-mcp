@@ -13,11 +13,19 @@ Der Server ist dafür gedacht, Shopify-Shop-Daten in Claude oder anderen MCP-Cli
 
 Der Server stellt diese Tools bereit:
 
+- Basisdaten:
 - `shopify_list_orders`
 - `shopify_list_customers`
 - `shopify_list_products`
 - `shopify_customer_purchase_summary`
 - `shopify_sales_by_customer_product`
+
+- Reporting Core (`v2`, auf `main`):
+- `shopify_sales_overview`
+- `shopify_sales_timeseries`
+- `shopify_top_products`
+- `shopify_top_customers`
+- `shopify_discount_analysis`
 
 Write-Operationen sind nicht erlaubt. GraphQL-Mutationen werden blockiert.
 
@@ -112,7 +120,7 @@ Wenn `SHOPIFY_ADMIN_ACCESS_TOKEN` gesetzt ist, verwendet der MCP den statischen 
 
 ### Variante 1: Über PyPI mit `uvx`
 
-Die Beispiele unten sind auf `0.2.6` gepinnt. Wenn später eine neuere Version veröffentlicht ist, kannst du die Versionsnummer anpassen.
+Die Beispiele unten sind auf die letzte veröffentlichte PyPI-Version gepinnt. `main` kann bereits zusätzliche, noch nicht veröffentlichte Tools enthalten.
 
 ```json
 {
