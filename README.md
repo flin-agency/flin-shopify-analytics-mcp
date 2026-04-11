@@ -133,6 +133,28 @@ Wenn `SHOPIFY_ADMIN_ACCESS_TOKEN` gesetzt ist, verwendet der MCP den statischen 
 
 ## Claude Desktop Konfiguration
 
+## Empfohlener Skill fuer Analysen
+
+Wenn du diesen MCP in Claude oder Codex fuer schnelle Shop-Analysen nutzt, ist es empfohlen, zusaetzlich den repo-lokalen Skill zu verwenden:
+
+- [skills/shopify-analysis-playbook/SKILL.md](/Users/nicolasg/Antigravity/flin-shopify-analytics-mcp/skills/shopify-analysis-playbook/SKILL.md)
+
+Der Skill ist kein Ersatz fuer den MCP. Er ist ein Analyse-Playbook, das Claude hilft:
+
+- die richtigen Tools in der richtigen Reihenfolge zu nutzen
+- Antworten kurz und entscheidungsorientiert zu halten
+- Attribution und Retention nicht zu ueberinterpretieren
+
+Empfohlene Kombination:
+
+1. MCP verbinden
+2. Skill laden bzw. referenzieren
+3. Dann Fragen stellen wie:
+   - "Give me a 30-day executive sales snapshot"
+   - "Why did revenue drop vs the previous period?"
+   - "Is retention healthy?"
+   - "Can we trust the attribution data?"
+
 ### Variante 1: Über PyPI mit `uvx`
 
 Die Beispiele unten sind auf die letzte veröffentlichte PyPI-Version gepinnt. `main` kann bereits zusätzliche, noch nicht veröffentlichte Tools enthalten.
