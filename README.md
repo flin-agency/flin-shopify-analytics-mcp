@@ -145,7 +145,7 @@ Die Beispiele unten sind auf die letzte veröffentlichte PyPI-Version gepinnt. `
       "args": [
         "--refresh",
         "-q",
-        "flin-shopify-analytics-mcp@0.2.6"
+        "flin-shopify-analytics-mcp@0.3.0"
       ],
       "env": {
         "SHOPIFY_STORE_DOMAIN": "your-store.myshopify.com",
@@ -190,7 +190,7 @@ Das ist die stabilste Variante für Entwicklung und Debugging.
 ### Mit Client ID / Client Secret
 
 ```bash
-uvx --refresh -q flin-shopify-analytics-mcp@0.2.6 \
+uvx --refresh -q flin-shopify-analytics-mcp@0.3.0 \
   --domain your-store.myshopify.com \
   --clientId your_client_id \
   --clientSecret your_client_secret \
@@ -200,7 +200,7 @@ uvx --refresh -q flin-shopify-analytics-mcp@0.2.6 \
 ### Mit statischem Admin-Token
 
 ```bash
-uvx --refresh -q flin-shopify-analytics-mcp@0.2.6 \
+uvx --refresh -q flin-shopify-analytics-mcp@0.3.0 \
   --domain your-store.myshopify.com \
   --accessToken shpat_xxx \
   --apiVersion 2026-04
@@ -241,7 +241,7 @@ Dann kann die Python-Umgebung die Zertifikatskette nicht verifizieren.
 
 Prüfe in dieser Reihenfolge:
 
-1. Ob du auf `0.2.6` oder neuer bist
+1. Ob du auf `0.3.0` oder neuer bist
 2. Ob ein Firmen-Proxy oder eigenes Root-CA im Spiel ist
 3. Ob `SHOPIFY_CA_BUNDLE` oder `SSL_CERT_FILE` gesetzt werden muss
 
@@ -258,7 +258,7 @@ uv cache clean flin-shopify-analytics-mcp
 Und in der Claude-Konfiguration:
 
 ```json
-"args": ["--refresh", "-q", "flin-shopify-analytics-mcp@0.2.6"]
+"args": ["--refresh", "-q", "flin-shopify-analytics-mcp@0.3.0"]
 ```
 
 ## Entwicklung
